@@ -1,7 +1,11 @@
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
+import { useState, useEffect } from "react";
+import { useAuth } from "@/hooks/useAuth";
+import { getStoredWallet } from "@/lib/wallet";
+import { toast } from "sonner";
 import { 
   User, 
   Shield, 
@@ -12,10 +16,32 @@ import {
   LogOut,
   Award,
   Calendar,
-  TrendingUp
+  TrendingUp,
+  Copy,
+  Wallet
 } from "lucide-react";
 
 export default function ProfileScreen() {
+  const { user, signOut } = useAuth();
+  const [wallet, setWallet] = useState(getStoredWallet());
+
+  useEffect(() => {
+    setWallet(getStoredWallet());
+  }, [user]);
+
+  const copyToClipboard = (text: string, label: string) => {
+    navigator.clipboard.writeText(text);
+    toast.success(`${label} copied to clipboard`);
+  };
+
+  const handleSignOut = async () => {
+    const { error } = await signOut();
+    if (error) {
+      toast.error("Failed to sign out");
+    } else {
+      toast.success("Signed out successfully");
+    }
+  };
   return (
     <div className="p-6 pb-24 space-y-6 animate-fade-in">
       {/* Header */}
@@ -24,8 +50,12 @@ export default function ProfileScreen() {
           <User className="w-10 h-10 text-primary-foreground" />
         </div>
         <div>
-          <h1 className="text-2xl font-bold">Anonymous User</h1>
-          <p className="text-muted-foreground">Privacy-first identity</p>
+          <h1 className="text-2xl font-bold">
+            {user?.user_metadata?.display_name || 'Anonymous User'}
+          </h1>
+          <p className="text-muted-foreground">
+            {user?.user_metadata?.is_anonymous ? 'Anonymous Account' : 'Registered Account'}
+          </p>
         </div>
       </div>
 
@@ -54,31 +84,85 @@ export default function ProfileScreen() {
         </Card>
       </div>
 
-      {/* Privacy Level */}
+      {/* Account Information */}
       <Card className="shadow-card">
         <CardHeader>
-          <CardTitle className="flex items-center justify-between">
-            Privacy Level
-            <Badge className="bg-success hover:bg-success/80">Maximum</Badge>
+          <CardTitle className="flex items-center gap-2">
+            <User className="w-5 h-5" />
+            Account Information
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-3">
-              <Lock className="w-5 h-5 text-primary" />
-              <div>
-                <p className="font-medium">Zero-Knowledge Mode</p>
-                <p className="text-sm text-muted-foreground">Full privacy protection</p>
-              </div>
+          <div className="space-y-2">
+            <div className="text-sm font-medium">Display Name</div>
+            <div className="text-muted-foreground">
+              {user?.user_metadata?.display_name || 'Anonymous User'}
             </div>
-            <Switch checked={true} />
           </div>
-          
-          <div className="bg-primary/10 p-3 rounded-lg">
-            <p className="text-sm text-primary">
-              Your identity remains completely private. Only cryptographic proofs are shared.
-            </p>
+          {user?.email && !user?.email?.includes('@zkpresence.temp') && (
+            <div className="space-y-2">
+              <div className="text-sm font-medium">Email</div>
+              <div className="text-muted-foreground">{user.email}</div>
+            </div>
+          )}
+          <div className="space-y-2">
+            <div className="text-sm font-medium">Account Type</div>
+            <Badge variant={user?.user_metadata?.is_anonymous ? "secondary" : "default"}>
+              {user?.user_metadata?.is_anonymous ? 'Anonymous' : 'Registered'}
+            </Badge>
           </div>
+        </CardContent>
+      </Card>
+
+      {/* Wallet Information */}
+      <Card className="shadow-card">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Wallet className="w-5 h-5" />
+            Anonymous Wallet
+          </CardTitle>
+          <CardDescription>Your secure, locally-generated wallet</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {wallet ? (
+            <>
+              <div className="space-y-2">
+                <div className="text-sm font-medium">Wallet Address</div>
+                <div className="flex items-center gap-2">
+                  <code className="text-xs bg-muted p-2 rounded flex-1 break-all">
+                    {wallet.address}
+                  </code>
+                  <Button 
+                    size="sm" 
+                    variant="outline"
+                    onClick={() => copyToClipboard(wallet.address, 'Wallet address')}
+                  >
+                    <Copy className="w-4 h-4" />
+                  </Button>
+                </div>
+              </div>
+              <div className="space-y-2">
+                <div className="text-sm font-medium">Recovery Phrase</div>
+                <div className="flex items-center gap-2">
+                  <code className="text-xs bg-muted p-2 rounded flex-1">
+                    {wallet.mnemonic}
+                  </code>
+                  <Button 
+                    size="sm" 
+                    variant="outline"
+                    onClick={() => copyToClipboard(wallet.mnemonic, 'Recovery phrase')}
+                  >
+                    <Copy className="w-4 h-4" />
+                  </Button>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  ⚠️ Keep this safe! It's the only way to recover your wallet.
+                </p>
+              </div>
+            </>
+          ) : (
+            <div className="text-muted-foreground">No wallet found</div>
+          )}
         </CardContent>
       </Card>
 
@@ -128,7 +212,11 @@ export default function ProfileScreen() {
             Security Settings
           </Button>
           
-          <Button variant="outline" className="w-full justify-start text-destructive hover:text-destructive">
+          <Button 
+            variant="outline" 
+            className="w-full justify-start text-destructive hover:text-destructive"
+            onClick={handleSignOut}
+          >
             <LogOut className="w-4 h-4 mr-3" />
             Sign Out
           </Button>
