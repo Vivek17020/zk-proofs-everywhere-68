@@ -2,24 +2,32 @@ import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Shield, Calendar, TrendingUp, Plus, Bluetooth, Wifi, User, MapPin } from "lucide-react";
+import { Shield, Calendar, TrendingUp, Plus, Bluetooth, Wifi, User, MapPin, Zap } from "lucide-react";
+import { useZKIdentity } from "@/hooks/useZKIdentity";
+import { useToast } from "@/hooks/use-toast";
 
 export default function HomeScreen() {
   const [isScanning, setIsScanning] = useState(false);
+  const [connectingTo, setConnectingTo] = useState<string | null>(null);
   const [nearbyUsers, setNearbyUsers] = useState<Array<{
     id: string;
     username: string;
     distance: string;
     signal: 'strong' | 'medium' | 'weak';
     method: 'bluetooth' | 'wifi';
+    connected: boolean;
+    ephemeralId?: string;
   }>>([]);
+  
+  const { generateEventCredential, isGeneratingProof } = useZKIdentity();
+  const { toast } = useToast();
 
   const mockNearbyUsers = [
-    { id: "0x1a2b3c", username: "alice_zk", distance: "2m", signal: "strong" as const, method: "bluetooth" as const },
-    { id: "0x4d5e6f", username: "bob_crypto", distance: "5m", signal: "medium" as const, method: "wifi" as const },
-    { id: "0x7g8h9i", username: "charlie_dev", distance: "8m", signal: "medium" as const, method: "bluetooth" as const },
-    { id: "0xj1k2l3", username: "diana_zkp", distance: "12m", signal: "weak" as const, method: "wifi" as const },
-    { id: "0xm4n5o6", username: "eve_privacy", distance: "15m", signal: "weak" as const, method: "bluetooth" as const },
+    { id: "0x1a2b3c", username: "alice_zk", distance: "2m", signal: "strong" as const, method: "bluetooth" as const, connected: false },
+    { id: "0x4d5e6f", username: "bob_crypto", distance: "5m", signal: "medium" as const, method: "wifi" as const, connected: false },
+    { id: "0x7g8h9i", username: "charlie_dev", distance: "8m", signal: "medium" as const, method: "bluetooth" as const, connected: false },
+    { id: "0xj1k2l3", username: "diana_zkp", distance: "12m", signal: "weak" as const, method: "wifi" as const, connected: false },
+    { id: "0xm4n5o6", username: "eve_privacy", distance: "15m", signal: "weak" as const, method: "bluetooth" as const, connected: false },
   ];
 
   const handleDetectNearby = () => {
@@ -39,6 +47,65 @@ export default function HomeScreen() {
       setNearbyUsers(mockNearbyUsers);
       setIsScanning(false);
     }, 2200);
+  };
+
+  const generateEphemeralId = () => {
+    const bytes = new Uint8Array(8);
+    crypto.getRandomValues(bytes);
+    return Array.from(bytes, byte => byte.toString(16).padStart(2, '0')).join('');
+  };
+
+  const handleConnect = async (userId: string, username: string) => {
+    if (connectingTo || isGeneratingProof) return;
+
+    setConnectingTo(userId);
+    
+    try {
+      // Simulate ephemeral ID exchange
+      toast({
+        title: "Initiating Connection",
+        description: `Exchanging ephemeral IDs with ${username}...`,
+      });
+
+      // Simulate BLE handshake delay
+      await new Promise(resolve => setTimeout(resolve, 1500));
+      
+      const ephemeralId = generateEphemeralId();
+      
+      // Update user as connected with ephemeral ID
+      setNearbyUsers(prev => 
+        prev.map(user => 
+          user.id === userId 
+            ? { ...user, connected: true, ephemeralId }
+            : user
+        )
+      );
+
+      toast({
+        title: "Connection Established! 🔗",
+        description: `Ephemeral ID: ${ephemeralId}`,
+      });
+
+      // Generate ZK proof of co-presence
+      await generateEventCredential(
+        `copresence-${userId}-${Date.now()}`,
+        `Co-presence with ${username}`,
+        {
+          location: "BLE Range",
+          duration: 1,
+          attendeeCount: 2
+        }
+      );
+
+    } catch (error) {
+      toast({
+        variant: "destructive",
+        title: "Connection Failed",
+        description: "Failed to establish connection. Please try again.",
+      });
+    } finally {
+      setConnectingTo(null);
+    }
   };
 
   const getSignalColor = (signal: 'strong' | 'medium' | 'weak') => {
@@ -199,9 +266,35 @@ export default function HomeScreen() {
                   <Badge variant="outline" className="text-xs">
                     {user.distance}
                   </Badge>
-                  <Button size="sm" variant="outline">
-                    Connect
-                  </Button>
+                  {user.connected ? (
+                    <div className="flex items-center space-x-2">
+                      <Badge variant="default" className="text-xs bg-success/20 text-success">
+                        <Zap className="w-3 h-3 mr-1" />
+                        Connected
+                      </Badge>
+                      {user.ephemeralId && (
+                        <Badge variant="outline" className="text-xs font-mono">
+                          {user.ephemeralId.slice(0, 6)}...
+                        </Badge>
+                      )}
+                    </div>
+                  ) : (
+                    <Button 
+                      size="sm" 
+                      variant="outline"
+                      onClick={() => handleConnect(user.id, user.username)}
+                      disabled={connectingTo === user.id || isGeneratingProof}
+                    >
+                      {connectingTo === user.id ? (
+                        <>
+                          <div className="w-3 h-3 mr-1 border border-primary border-t-transparent rounded-full animate-spin" />
+                          Connecting
+                        </>
+                      ) : (
+                        "Connect"
+                      )}
+                    </Button>
+                  )}
                 </div>
               </div>
             ))}
