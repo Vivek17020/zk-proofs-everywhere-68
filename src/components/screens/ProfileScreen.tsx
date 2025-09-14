@@ -59,110 +59,82 @@ export default function ProfileScreen() {
         </div>
       </div>
 
-      {/* Stats */}
-      <div className="grid grid-cols-3 gap-4">
-        <Card className="shadow-card bg-gradient-dark">
-          <CardContent className="p-4 text-center">
-            <Shield className="w-6 h-6 text-primary mx-auto mb-2" />
-            <p className="text-xl font-bold">12</p>
-            <p className="text-xs text-muted-foreground">Total Proofs</p>
-          </CardContent>
-        </Card>
-        <Card className="shadow-card bg-gradient-dark">
-          <CardContent className="p-4 text-center">
-            <Calendar className="w-6 h-6 text-success mx-auto mb-2" />
-            <p className="text-xl font-bold">8</p>
-            <p className="text-xs text-muted-foreground">Events</p>
-          </CardContent>
-        </Card>
-        <Card className="shadow-card bg-gradient-dark">
-          <CardContent className="p-4 text-center">
-            <Award className="w-6 h-6 text-warning mx-auto mb-2" />
-            <p className="text-xl font-bold">3</p>
-            <p className="text-xs text-muted-foreground">Badges</p>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Account Information */}
+      {/* Anonymous Credentials */}
       <Card className="shadow-card">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <User className="w-5 h-5" />
-            Account Information
+            <Shield className="w-5 h-5" />
+            Anonymous Credentials
           </CardTitle>
+          <CardDescription>Your privacy-preserving digital identity</CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="space-y-2">
-            <div className="text-sm font-medium">Display Name</div>
-            <div className="text-muted-foreground">
-              {user?.user_metadata?.display_name || 'Anonymous User'}
-            </div>
-          </div>
-          {user?.email && !user?.email?.includes('@zkpresence.temp') && (
-            <div className="space-y-2">
-              <div className="text-sm font-medium">Email</div>
-              <div className="text-muted-foreground">{user.email}</div>
-            </div>
-          )}
-          <div className="space-y-2">
-            <div className="text-sm font-medium">Account Type</div>
-            <Badge variant={user?.user_metadata?.is_anonymous ? "secondary" : "default"}>
-              {user?.user_metadata?.is_anonymous ? 'Anonymous' : 'Registered'}
-            </Badge>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Wallet Information */}
-      <Card className="shadow-card">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Wallet className="w-5 h-5" />
-            Anonymous Wallet
-          </CardTitle>
-          <CardDescription>Your secure, locally-generated wallet</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {wallet ? (
-            <>
-              <div className="space-y-2">
-                <div className="text-sm font-medium">Wallet Address</div>
-                <div className="flex items-center gap-2">
-                  <code className="text-xs bg-muted p-2 rounded flex-1 break-all">
-                    {wallet.address}
-                  </code>
-                  <Button 
-                    size="sm" 
-                    variant="outline"
-                    onClick={() => copyToClipboard(wallet.address, 'Wallet address')}
-                  >
-                    <Copy className="w-4 h-4" />
-                  </Button>
-                </div>
+        <CardContent className="space-y-6">
+          {/* Masked Wallet Address */}
+          <div className="space-y-3">
+            <div className="text-sm font-medium">Wallet Address</div>
+            <div className="flex items-center gap-3 p-4 bg-gradient-subtle rounded-lg border">
+              <div className="w-10 h-10 bg-primary/20 rounded-full flex items-center justify-center">
+                <Wallet className="w-5 h-5 text-primary" />
               </div>
-              <div className="space-y-2">
-                <div className="text-sm font-medium">Recovery Phrase</div>
-                <div className="flex items-center gap-2">
-                  <code className="text-xs bg-muted p-2 rounded flex-1">
-                    {wallet.mnemonic}
-                  </code>
-                  <Button 
-                    size="sm" 
-                    variant="outline"
-                    onClick={() => copyToClipboard(wallet.mnemonic, 'Recovery phrase')}
-                  >
-                    <Copy className="w-4 h-4" />
-                  </Button>
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  ⚠️ Keep this safe! It's the only way to recover your wallet.
+              <div className="flex-1">
+                <code className="text-sm font-mono text-foreground">
+                  {wallet ? `${wallet.address.slice(0, 6)}...${wallet.address.slice(-4)}` : '0x****...****'}
+                </code>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Anonymous wallet • Locally generated
                 </p>
               </div>
-            </>
-          ) : (
-            <div className="text-muted-foreground">No wallet found</div>
-          )}
+              {wallet && (
+                <Button 
+                  size="sm" 
+                  variant="ghost"
+                  onClick={() => copyToClipboard(wallet.address, 'Wallet address')}
+                >
+                  <Copy className="w-4 h-4" />
+                </Button>
+              )}
+            </div>
+          </div>
+
+          {/* ZK Badge Placeholder */}
+          <div className="space-y-3">
+            <div className="text-sm font-medium">Zero-Knowledge Badges</div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="p-4 bg-gradient-subtle rounded-lg border border-dashed border-muted-foreground/30 text-center">
+                <Shield className="w-8 h-8 text-muted-foreground mx-auto mb-2" />
+                <p className="text-xs text-muted-foreground">Privacy Pioneer</p>
+                <Badge variant="outline" className="mt-2 text-xs">
+                  Coming Soon
+                </Badge>
+              </div>
+              <div className="p-4 bg-gradient-subtle rounded-lg border border-dashed border-muted-foreground/30 text-center">
+                <Award className="w-8 h-8 text-muted-foreground mx-auto mb-2" />
+                <p className="text-xs text-muted-foreground">Event Attendee</p>
+                <Badge variant="outline" className="mt-2 text-xs">
+                  Coming Soon
+                </Badge>
+              </div>
+            </div>
+            <p className="text-xs text-muted-foreground text-center">
+              Earn badges by attending events and generating proofs
+            </p>
+          </div>
+
+          {/* Credential Stats */}
+          <div className="grid grid-cols-3 gap-4 pt-4 border-t">
+            <div className="text-center">
+              <p className="text-xl font-bold text-primary">0</p>
+              <p className="text-xs text-muted-foreground">Active Proofs</p>
+            </div>
+            <div className="text-center">
+              <p className="text-xl font-bold text-success">0</p>
+              <p className="text-xs text-muted-foreground">Events Joined</p>
+            </div>
+            <div className="text-center">
+              <p className="text-xl font-bold text-warning">0</p>
+              <p className="text-xs text-muted-foreground">Badges Earned</p>
+            </div>
+          </div>
         </CardContent>
       </Card>
 
