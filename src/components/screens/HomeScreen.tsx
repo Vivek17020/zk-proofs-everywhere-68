@@ -19,7 +19,7 @@ export default function HomeScreen() {
     ephemeralId?: string;
   }>>([]);
   
-  const { generateEventCredential, isGeneratingProof } = useZKIdentity();
+  const { generateCoPresenceProof, identity, isGeneratingProof } = useZKIdentity();
   const { toast } = useToast();
 
   const mockNearbyUsers = [
@@ -87,14 +87,14 @@ export default function HomeScreen() {
       });
 
       // Generate ZK proof of co-presence
-      await generateEventCredential(
-        `copresence-${userId}-${Date.now()}`,
-        `Co-presence with ${username}`,
-        {
-          location: "BLE Range",
-          duration: 1,
-          attendeeCount: 2
-        }
+      const userIdA = identity?.identityCommitment || "0x" + generateEphemeralId();
+      const userIdB = userId;
+      
+      await generateCoPresenceProof(
+        userIdA,
+        userIdB,
+        ephemeralId,
+        "BLE Range"
       );
 
     } catch (error) {

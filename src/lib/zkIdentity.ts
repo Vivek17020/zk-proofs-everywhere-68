@@ -15,6 +15,16 @@ interface ZKCredential {
   };
 }
 
+interface ZKCoPresenceProof {
+  eventId: string;
+  userIdA: string;
+  userIdB: string;
+  ephemeralNonce: string;
+  proofString: string;
+  timestamp: number;
+  location?: string;
+}
+
 interface ZKIdentity {
   identityCommitment: string;
   nullifierHash: string;
@@ -26,6 +36,7 @@ interface ZKIdentity {
 class ZKIdentityManager {
   private static readonly STORAGE_KEY = 'zk-identity';
   private static readonly CREDENTIALS_KEY = 'zk-credentials';
+  private static readonly COPRESENCE_PROOFS_KEY = 'zk-copresence-proofs';
 
   // Generate a mock ZK identity for demonstration
   static generateIdentity(): ZKIdentity {
@@ -78,6 +89,36 @@ class ZKIdentityManager {
     return credential;
   }
 
+  // Generate ZK proof for co-presence
+  static async generateCoPresenceProof(
+    userIdA: string,
+    userIdB: string,
+    ephemeralNonce: string,
+    location?: string
+  ): Promise<ZKCoPresenceProof> {
+    // Simulate proof generation delay
+    await new Promise(resolve => setTimeout(resolve, 1500));
+
+    // Generate mock proof string using both user IDs and nonce
+    const proofString = this.generateRandomHex(128);
+    const eventId = `copresence-${Date.now()}-${this.generateRandomHex(8)}`;
+
+    const proof: ZKCoPresenceProof = {
+      eventId,
+      userIdA,
+      userIdB,
+      ephemeralNonce,
+      proofString,
+      timestamp: Date.now(),
+      location
+    };
+
+    // Store proof locally
+    this.storeCoPresenceProof(proof);
+
+    return proof;
+  }
+
   // Verify a ZK credential
   static async verifyCredential(credential: ZKCredential): Promise<boolean> {
     // Simulate verification delay
@@ -118,6 +159,26 @@ class ZKIdentityManager {
         return JSON.parse(stored);
       } catch (e) {
         console.warn('Failed to parse stored credentials');
+      }
+    }
+    return [];
+  }
+
+  // Store a co-presence proof
+  static storeCoPresenceProof(proof: ZKCoPresenceProof): void {
+    const proofs = this.getStoredCoPresenceProofs();
+    proofs.push(proof);
+    localStorage.setItem(this.COPRESENCE_PROOFS_KEY, JSON.stringify(proofs));
+  }
+
+  // Get all stored co-presence proofs
+  static getStoredCoPresenceProofs(): ZKCoPresenceProof[] {
+    const stored = localStorage.getItem(this.COPRESENCE_PROOFS_KEY);
+    if (stored) {
+      try {
+        return JSON.parse(stored);
+      } catch (e) {
+        console.warn('Failed to parse stored co-presence proofs');
       }
     }
     return [];
@@ -172,4 +233,4 @@ class ZKIdentityManager {
   }
 }
 
-export { ZKIdentityManager, type ZKCredential, type ZKIdentity };
+export { ZKIdentityManager, type ZKCredential, type ZKIdentity, type ZKCoPresenceProof };

@@ -1,20 +1,23 @@
 import { useState, useEffect } from 'react';
-import { ZKIdentityManager, type ZKCredential, type ZKIdentity } from '@/lib/zkIdentity';
+import { ZKIdentityManager, type ZKCredential, type ZKIdentity, type ZKCoPresenceProof } from '@/lib/zkIdentity';
 import { useToast } from '@/hooks/use-toast';
 
 export function useZKIdentity() {
   const [identity, setIdentity] = useState<ZKIdentity | null>(null);
   const [credentials, setCredentials] = useState<ZKCredential[]>([]);
+  const [coPresenceProofs, setCoPresenceProofs] = useState<ZKCoPresenceProof[]>([]);
   const [isGeneratingProof, setIsGeneratingProof] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
-    // Load identity and credentials on mount
+    // Load identity, credentials, and co-presence proofs on mount
     const loadedIdentity = ZKIdentityManager.getOrCreateIdentity();
     const loadedCredentials = ZKIdentityManager.getStoredCredentials();
+    const loadedCoPresenceProofs = ZKIdentityManager.getStoredCoPresenceProofs();
     
     setIdentity(loadedIdentity);
     setCredentials(loadedCredentials);
+    setCoPresenceProofs(loadedCoPresenceProofs);
   }, []);
 
   const generateEventCredential = async (
@@ -80,6 +83,49 @@ export function useZKIdentity() {
     }
   };
 
+  const generateCoPresenceProof = async (
+    userIdA: string,
+    userIdB: string,
+    ephemeralNonce: string,
+    location?: string
+  ) => {
+    if (isGeneratingProof) return;
+
+    setIsGeneratingProof(true);
+    
+    try {
+      toast({
+        title: "Generating Co-Presence Proof",
+        description: "Creating ZK proof of meeting...",
+      });
+
+      const proof = await ZKIdentityManager.generateCoPresenceProof(
+        userIdA,
+        userIdB,
+        ephemeralNonce,
+        location
+      );
+
+      setCoPresenceProofs(prev => [...prev, proof]);
+
+      toast({
+        title: "Co-Presence Proof Generated! 🤝",
+        description: `Proof ID: ${proof.eventId.slice(0, 8)}...`,
+      });
+
+      return proof;
+    } catch (error) {
+      toast({
+        variant: "destructive",
+        title: "Proof Generation Failed",
+        description: "Failed to generate co-presence proof. Please try again.",
+      });
+      throw error;
+    } finally {
+      setIsGeneratingProof(false);
+    }
+  };
+
   const exportCredentials = () => {
     try {
       const data = ZKIdentityManager.exportCredentials();
@@ -114,6 +160,7 @@ export function useZKIdentity() {
     ZKIdentityManager.clearAll();
     setIdentity(ZKIdentityManager.getOrCreateIdentity());
     setCredentials([]);
+    setCoPresenceProofs([]);
     
     toast({
       title: "Data Cleared",
@@ -124,8 +171,10 @@ export function useZKIdentity() {
   return {
     identity,
     credentials,
+    coPresenceProofs,
     isGeneratingProof,
     generateEventCredential,
+    generateCoPresenceProof,
     verifyCredential,
     exportCredentials,
     getStats,
