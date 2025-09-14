@@ -19,10 +19,20 @@ interface ZKCoPresenceProof {
   eventId: string;
   userIdA: string;
   userIdB: string;
+  usernameA: string;
+  usernameB: string;
   ephemeralNonce: string;
   proofString: string;
   timestamp: number;
   location?: string;
+  credentialA: {
+    commitment: string;
+    nullifier: string;
+  };
+  credentialB: {
+    commitment: string;
+    nullifier: string;
+  };
 }
 
 interface ZKIdentity {
@@ -93,11 +103,24 @@ class ZKIdentityManager {
   static async generateCoPresenceProof(
     userIdA: string,
     userIdB: string,
+    usernameA: string,
+    usernameB: string,
     ephemeralNonce: string,
     location?: string
   ): Promise<ZKCoPresenceProof> {
     // Simulate proof generation delay
     await new Promise(resolve => setTimeout(resolve, 1500));
+
+    // Generate mock credentials for both users
+    const credentialA = {
+      commitment: this.generateRandomHex(32),
+      nullifier: this.generateRandomHex(32)
+    };
+    
+    const credentialB = {
+      commitment: this.generateRandomHex(32),
+      nullifier: this.generateRandomHex(32)
+    };
 
     // Generate mock proof string using both user IDs and nonce
     const proofString = this.generateRandomHex(128);
@@ -107,10 +130,14 @@ class ZKIdentityManager {
       eventId,
       userIdA,
       userIdB,
+      usernameA,
+      usernameB,
       ephemeralNonce,
       proofString,
       timestamp: Date.now(),
-      location
+      location,
+      credentialA,
+      credentialB
     };
 
     // Store proof locally

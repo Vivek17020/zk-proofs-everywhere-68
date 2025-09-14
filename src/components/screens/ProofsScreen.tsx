@@ -5,7 +5,7 @@ import { Shield, Download, Share, Eye, CheckCircle, Clock, Gift, TrendingUp } fr
 import { useZKIdentity } from "@/hooks/useZKIdentity";
 
 export default function ProofsScreen() {
-  const { credentials, verifyCredential, exportCredentials, getStats } = useZKIdentity();
+  const { credentials, coPresenceProofs, verifyCredential, exportCredentials, getStats } = useZKIdentity();
   const stats = getStats();
 
   // Mock stats based on actual credentials or fallback to demo data
@@ -21,8 +21,8 @@ export default function ProofsScreen() {
     totalRewards: 300
   };
 
-  // Use actual credentials if available, otherwise show demo data
-  const displayProofs = credentials.length > 0 ? credentials.map(cred => ({
+  // Combine event credentials and co-presence proofs
+  const eventProofs = credentials.length > 0 ? credentials.map(cred => ({
     id: cred.id,
     type: "Event Attendance",
     event: cred.eventName,
@@ -33,7 +33,28 @@ export default function ProofsScreen() {
     description: `Zero-knowledge proof of attendance at ${cred.eventName}`,
     proof: cred.proof,
     location: cred.metadata.location || "Unknown"
-  })) : [
+  })) : [];
+
+  const coPresenceProofsList = coPresenceProofs.map(proof => ({
+    id: proof.eventId,
+    type: "Co-Presence Proof",
+    event: `Co-presence Event`,
+    status: "Valid" as const,
+    date: new Date(proof.timestamp).toLocaleDateString(),
+    reward: 75,
+    icon: CheckCircle,
+    description: `Proof of co-presence with ${proof.userIdB.slice(0, 8)}... at ${proof.eventId.slice(0, 12)}...`,
+    proof: proof.proofString,
+    location: proof.location || "Unknown",
+    usernameB: proof.usernameB,
+    ephemeralNonce: proof.ephemeralNonce
+  }));
+
+  // Combine all proofs
+  const allProofs = [...eventProofs, ...coPresenceProofsList];
+
+  // Use actual proofs if available, otherwise show demo data
+  const displayProofs = allProofs.length > 0 ? allProofs : [
     {
       id: "1",
       type: "Event Attendance",
@@ -238,7 +259,7 @@ export default function ProofsScreen() {
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <div className="bg-muted/30 p-3 rounded-lg">
+                   <div className="bg-muted/30 p-3 rounded-lg">
                     <div className="flex items-center justify-between text-sm">
                       <span className="text-muted-foreground">Proof Hash:</span>
                       <code className="font-mono text-xs">{proof.proof.slice(0, 12)}...</code>
@@ -247,7 +268,13 @@ export default function ProofsScreen() {
                       <span className="text-muted-foreground">Type:</span>
                       <span className="text-xs">{proof.type}</span>
                     </div>
-                    {proof.status !== 'Submitted' && (
+                    {proof.type === "Co-Presence Proof" && "ephemeralNonce" in proof && typeof proof.ephemeralNonce === "string" && (
+                      <div className="flex items-center justify-between text-sm mt-1">
+                        <span className="text-muted-foreground">Ephemeral ID:</span>
+                        <code className="font-mono text-xs">{proof.ephemeralNonce.slice(0, 8)}...</code>
+                      </div>
+                    )}
+                    {proof.status !== "Submitted" && (
                       <div className="flex items-center justify-between text-sm mt-1">
                         <span className="text-muted-foreground">Reward:</span>
                         <span className="text-xs font-medium text-primary">{proof.reward} ZKP</span>

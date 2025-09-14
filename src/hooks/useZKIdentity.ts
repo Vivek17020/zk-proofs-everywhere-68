@@ -86,6 +86,8 @@ export function useZKIdentity() {
   const generateCoPresenceProof = async (
     userIdA: string,
     userIdB: string,
+    usernameA: string,
+    usernameB: string,
     ephemeralNonce: string,
     location?: string
   ) => {
@@ -102,6 +104,8 @@ export function useZKIdentity() {
       const proof = await ZKIdentityManager.generateCoPresenceProof(
         userIdA,
         userIdB,
+        usernameA,
+        usernameB,
         ephemeralNonce,
         location
       );
@@ -110,7 +114,7 @@ export function useZKIdentity() {
 
       toast({
         title: "Co-Presence Proof Generated! 🤝",
-        description: `Proof ID: ${proof.eventId.slice(0, 8)}...`,
+        description: `Proof of co-presence with ${proof.userIdB.slice(0, 8)}... at ${proof.eventId.slice(0, 12)}...`,
       });
 
       return proof;

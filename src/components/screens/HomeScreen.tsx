@@ -89,10 +89,13 @@ export default function HomeScreen() {
       // Generate ZK proof of co-presence
       const userIdA = identity?.identityCommitment || "0x" + generateEphemeralId();
       const userIdB = userId;
+      const usernameA = "You";
       
       await generateCoPresenceProof(
         userIdA,
         userIdB,
+        usernameA,
+        username,
         ephemeralId,
         "BLE Range"
       );
