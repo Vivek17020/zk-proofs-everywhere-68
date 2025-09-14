@@ -1,4 +1,4 @@
-import { Home, Shield, Calendar, User } from "lucide-react";
+import { Home, Ticket, Calendar, User } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface TabNavigationProps {
@@ -7,16 +7,16 @@ interface TabNavigationProps {
 }
 
 const tabs = [
-  { id: 'home', label: 'Home', icon: Home },
-  { id: 'proofs', label: 'My Proofs', icon: Shield },
+  { id: 'home', label: 'Stage', icon: Home },
+  { id: 'proofs', label: 'Tickets', icon: Ticket },
   { id: 'events', label: 'Events', icon: Calendar },
   { id: 'profile', label: 'Profile', icon: User },
 ];
 
 export default function TabNavigation({ activeTab, onTabChange }: TabNavigationProps) {
   return (
-    <div className="fixed bottom-0 left-0 right-0 bg-card border-t border-border safe-bottom">
-      <div className="flex justify-around items-center py-2">
+    <div className="fixed bottom-0 left-0 right-0 bg-gradient-stage border-t border-primary/20 safe-bottom backdrop-blur-xl">
+      <div className="flex justify-around items-center py-3">
         {tabs.map((tab) => {
           const Icon = tab.icon;
           const isActive = activeTab === tab.id;
@@ -26,17 +26,23 @@ export default function TabNavigation({ activeTab, onTabChange }: TabNavigationP
               key={tab.id}
               onClick={() => onTabChange(tab.id)}
               className={cn(
-                "flex flex-col items-center justify-center p-3 rounded-xl transition-all duration-200 min-w-0 flex-1",
+                "flex flex-col items-center justify-center p-3 rounded-2xl transition-all duration-300 min-w-0 flex-1 relative",
                 isActive 
-                  ? "text-primary bg-primary/10 shadow-md" 
-                  : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+                  ? "text-primary bg-gradient-primary/20 glow-stage scale-105" 
+                  : "text-muted-foreground hover:text-primary hover:bg-primary/10 hover:scale-105"
               )}
             >
               <Icon className={cn(
-                "w-5 h-5 mb-1 transition-transform",
-                isActive && "scale-110"
+                "w-6 h-6 mb-1 transition-all duration-300",
+                isActive && "drop-shadow-lg"
               )} />
-              <span className="text-xs font-medium truncate">{tab.label}</span>
+              <span className={cn(
+                "text-xs font-medium truncate transition-all duration-300",
+                isActive && "font-bold"
+              )}>{tab.label}</span>
+              {isActive && (
+                <div className="absolute -top-1 -right-1 w-2 h-2 bg-accent rounded-full animate-pulse"></div>
+              )}
             </button>
           );
         })}
