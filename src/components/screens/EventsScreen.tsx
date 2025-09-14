@@ -1,11 +1,17 @@
+import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { Calendar, MapPin, Users, Clock, Search, Filter } from "lucide-react";
+import { Calendar, MapPin, Users, Clock, Search, Filter, Zap } from "lucide-react";
 import eventsImage from "@/assets/events-icon.jpg";
+import { useZKIdentity } from "@/hooks/useZKIdentity";
 
 export default function EventsScreen() {
+  const { generateEventCredential, isGeneratingProof } = useZKIdentity();
+  const [joinedEvents, setJoinedEvents] = useState<Set<string>>(new Set());
+
+  // Mock events data
   const events = [
     {
       id: "1",
@@ -56,6 +62,21 @@ export default function EventsScreen() {
       requiresProof: true
     }
   ];
+
+  const handleJoinEvent = async (event: typeof events[0]) => {
+    if (joinedEvents.has(event.id) || isGeneratingProof) return;
+
+    try {
+      await generateEventCredential(event.id, event.name, {
+        location: event.location,
+        attendeeCount: event.attendees
+      });
+      
+      setJoinedEvents(prev => new Set([...prev, event.id]));
+    } catch (error) {
+      console.error('Failed to generate credential:', error);
+    }
+  };
 
   return (
     <div className="p-6 pb-24 space-y-6 animate-fade-in">
@@ -144,19 +165,36 @@ export default function EventsScreen() {
                 </div>
               </div>
 
-              <div className="flex space-x-2">
-                <Button 
-                  size="sm" 
-                  variant="gradient"
-                  disabled={event.status === 'upcoming'}
-                >
-                  {event.status === 'open' ? 'Join Event' : 
-                   event.status === 'registration' ? 'Register' : 'Coming Soon'}
-                </Button>
-                <Button size="sm" variant="outline">
-                  Details
-                </Button>
-              </div>
+               <div className="flex gap-2 mt-4">
+                 {joinedEvents.has(event.id) ? (
+                   <Badge variant="secondary" className="bg-success/20 text-success border-success/30 flex items-center gap-1">
+                     <Zap className="w-3 h-3" />
+                     ZK Proof Generated
+                   </Badge>
+                 ) : (
+                   <Button 
+                     onClick={() => handleJoinEvent(event)}
+                     disabled={isGeneratingProof || event.status === 'upcoming'}
+                     className="bg-gradient-primary hover:bg-gradient-secondary glow-stage transition-all duration-300"
+                   >
+                     {isGeneratingProof ? (
+                       <>
+                         <div className="w-4 h-4 border-2 border-primary-foreground border-t-transparent rounded-full animate-spin mr-2" />
+                         Generating ZK Proof...
+                       </>
+                     ) : (
+                       <>
+                         <Zap className="w-4 h-4 mr-2" />
+                         {event.status === 'open' ? 'Join & Generate Proof' : 
+                          event.status === 'registration' ? 'Register & Generate Proof' : 'Coming Soon'}
+                       </>
+                     )}
+                   </Button>
+                 )}
+                 <Button size="sm" variant="outline">
+                   Details
+                 </Button>
+               </div>
             </CardContent>
           </Card>
         ))}
