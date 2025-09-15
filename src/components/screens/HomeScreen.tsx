@@ -2,13 +2,18 @@ import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Shield, Calendar, TrendingUp, Plus, Bluetooth, Wifi, User, MapPin, Zap } from "lucide-react";
+import { Shield, Calendar, TrendingUp, Plus, Bluetooth, Wifi, User, MapPin, Zap, QrCode, Camera } from "lucide-react";
 import { useZKIdentity } from "@/hooks/useZKIdentity";
 import { useToast } from "@/hooks/use-toast";
+import { QRCodeGenerator } from "@/components/QRCodeGenerator";
+import { QRCodeScanner } from "@/components/QRCodeScanner";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 export default function HomeScreen() {
   const [isScanning, setIsScanning] = useState(false);
   const [connectingTo, setConnectingTo] = useState<string | null>(null);
+  const [showQRGenerator, setShowQRGenerator] = useState(false);
+  const [showQRScanner, setShowQRScanner] = useState(false);
   const [nearbyUsers, setNearbyUsers] = useState<Array<{
     id: string;
     username: string;
@@ -205,23 +210,41 @@ export default function HomeScreen() {
             <Calendar className="w-4 h-4 mr-2" />
             Browse Events
           </Button>
+          <div className="grid grid-cols-2 gap-2">
+            <Button 
+              onClick={handleDetectNearby}
+              disabled={isScanning}
+              variant="secondary" 
+              className="w-full"
+            >
+              {isScanning ? (
+                <>
+                  <div className="w-4 h-4 mr-2 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                  Scanning...
+                </>
+              ) : (
+                <>
+                  <Bluetooth className="w-4 h-4 mr-2" />
+                  BLE Scan
+                </>
+              )}
+            </Button>
+            <Button 
+              onClick={() => setShowQRGenerator(true)}
+              variant="secondary" 
+              className="w-full"
+            >
+              <QrCode className="w-4 h-4 mr-2" />
+              QR Share
+            </Button>
+          </div>
           <Button 
-            onClick={handleDetectNearby}
-            disabled={isScanning}
-            variant="secondary" 
+            onClick={() => setShowQRScanner(true)}
+            variant="outline" 
             className="w-full"
           >
-            {isScanning ? (
-              <>
-                <div className="w-4 h-4 mr-2 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-                Scanning...
-              </>
-            ) : (
-              <>
-                <Bluetooth className="w-4 h-4 mr-2" />
-                Detect Nearby
-              </>
-            )}
+            <Camera className="w-4 h-4 mr-2" />
+            Scan QR Code
           </Button>
         </CardContent>
       </Card>
@@ -317,6 +340,31 @@ export default function HomeScreen() {
           </CardContent>
         </Card>
       )}
+
+      {/* QR Code Dialogs */}
+      <Dialog open={showQRGenerator} onOpenChange={setShowQRGenerator}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Share Your QR Code</DialogTitle>
+          </DialogHeader>
+          <QRCodeGenerator onClose={() => setShowQRGenerator(false)} />
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showQRScanner} onOpenChange={setShowQRScanner}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Scan QR Code</DialogTitle>
+          </DialogHeader>
+          <QRCodeScanner 
+            onClose={() => setShowQRScanner(false)}
+            onProofGenerated={() => {
+              setShowQRScanner(false);
+              // Optionally refresh nearby users or show success message
+            }}
+          />
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
