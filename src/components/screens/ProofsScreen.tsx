@@ -1,13 +1,24 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Shield, Download, Share, Eye, CheckCircle, Clock, Gift, TrendingUp, Users } from "lucide-react";
+import { Shield, Download, Share, Eye, CheckCircle, Clock, Gift, TrendingUp, Users, ExternalLink, Upload } from "lucide-react";
 import { useZKIdentity } from "@/hooks/useZKIdentity";
 import { useEffect } from "react";
 import confetti from "canvas-confetti";
+import BlockchainStatus from "@/components/BlockchainStatus";
+import { BlockchainManager } from "@/lib/blockchain";
 
 export default function ProofsScreen() {
-  const { credentials, coPresenceProofs, verifyCredential, exportCredentials, getStats } = useZKIdentity();
+  const { 
+    credentials, 
+    coPresenceProofs, 
+    verifyCredential, 
+    exportCredentials, 
+    getStats,
+    submitProofToBlockchain,
+    isSubmittingToBlockchain,
+    walletConnected
+  } = useZKIdentity();
   const stats = getStats();
 
   // Celebration animation for new proofs
@@ -61,7 +72,8 @@ export default function ProofsScreen() {
     icon: CheckCircle,
     description: `Zero-knowledge proof of attendance at ${cred.eventName}`,
     proof: cred.proof,
-    location: cred.metadata.location || "Unknown"
+    location: cred.metadata.location || "Unknown",
+    credential: cred // Store full credential for blockchain submission
   })) : [];
 
   const coPresenceProofsList = coPresenceProofs.map(proof => ({
@@ -172,13 +184,29 @@ export default function ProofsScreen() {
     }
   };
 
+  const handleSubmitToBlockchain = async (proof: any) => {
+    if (proof.credential) {
+      try {
+        const result = await submitProofToBlockchain(proof.credential);
+        if (result) {
+          console.log('Submitted to blockchain:', result);
+        }
+      } catch (error) {
+        console.error('Failed to submit to blockchain:', error);
+      }
+    }
+  };
+
   return (
     <div className="p-6 pb-24 space-y-6 animate-fade-in">
       {/* Header */}
       <div className="space-y-2">
-        <h1 className="text-2xl font-bold">Festival Tickets</h1>
-        <p className="text-muted-foreground">Your zero-knowledge event credentials</p>
+        <h1 className="text-2xl font-bold">ZK Proofs</h1>
+        <p className="text-muted-foreground">Your zero-knowledge event credentials and blockchain submissions</p>
       </div>
+
+      {/* Blockchain Status */}
+      <BlockchainStatus />
 
       {/* Stats Cards */}
       <div className="grid grid-cols-2 gap-4 mb-6">
@@ -335,6 +363,18 @@ export default function ProofsScreen() {
                       <Share className="w-4 h-4 mr-1" />
                       Share
                     </Button>
+                    {proof.credential && walletConnected && (
+                      <Button 
+                        size="sm" 
+                        variant="outline" 
+                        className="flex-1 hover:bg-accent/10 hover:border-accent/30 transition-colors"
+                        onClick={() => handleSubmitToBlockchain(proof)}
+                        disabled={isSubmittingToBlockchain}
+                      >
+                        <Upload className="w-4 h-4 mr-1" />
+                        {isSubmittingToBlockchain ? 'Submitting...' : 'To Chain'}
+                      </Button>
+                    )}
                     <Button size="sm" variant="outline" className="flex-1 hover:bg-accent/10 hover:border-accent/30 transition-colors">
                       <Download className="w-4 h-4 mr-1" />
                       Export

@@ -1,12 +1,15 @@
 import { useState, useEffect } from 'react';
 import { ZKIdentityManager, type ZKCredential, type ZKIdentity, type ZKCoPresenceProof } from '@/lib/zkIdentity';
 import { useToast } from '@/hooks/use-toast';
+import { BlockchainManager } from '@/lib/blockchain';
 
 export function useZKIdentity() {
   const [identity, setIdentity] = useState<ZKIdentity | null>(null);
   const [credentials, setCredentials] = useState<ZKCredential[]>([]);
   const [coPresenceProofs, setCoPresenceProofs] = useState<ZKCoPresenceProof[]>([]);
   const [isGeneratingProof, setIsGeneratingProof] = useState(false);
+  const [isSubmittingToBlockchain, setIsSubmittingToBlockchain] = useState(false);
+  const [walletConnected, setWalletConnected] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -18,7 +21,35 @@ export function useZKIdentity() {
     setIdentity(loadedIdentity);
     setCredentials(loadedCredentials);
     setCoPresenceProofs(loadedCoPresenceProofs);
+
+    // Check wallet connection
+    checkWalletConnection();
   }, []);
+
+  const checkWalletConnection = async () => {
+    const connected = await BlockchainManager.isConnected();
+    setWalletConnected(connected);
+  };
+
+  const connectWallet = async () => {
+    const connected = await BlockchainManager.connectWallet();
+    setWalletConnected(connected);
+    
+    if (connected) {
+      toast({
+        title: "Wallet Connected! 🔗",
+        description: "You can now submit proofs to the blockchain",
+      });
+    } else {
+      toast({
+        variant: "destructive",
+        title: "Connection Failed",
+        description: "Please install MetaMask and try again",
+      });
+    }
+    
+    return connected;
+  };
 
   const generateEventCredential = async (
     eventId: string,
@@ -154,6 +185,65 @@ export function useZKIdentity() {
     }
   };
 
+  const submitProofToBlockchain = async (credential: ZKCredential) => {
+    if (!walletConnected) {
+      const connected = await connectWallet();
+      if (!connected) return null;
+    }
+
+    setIsSubmittingToBlockchain(true);
+    
+    try {
+      toast({
+        title: "Submitting to Blockchain ⛓️",
+        description: "Publishing your proof on-chain...",
+      });
+
+      const result = await BlockchainManager.submitProofToBlockchain(
+        credential.eventId,
+        credential.proof
+      );
+
+      if (result) {
+        toast({
+          title: "Proof Submitted! 🎉",
+          description: `Transaction: ${result.txHash.slice(0, 10)}...`,
+        });
+
+        return result;
+      } else {
+        throw new Error('Failed to submit to blockchain');
+      }
+    } catch (error) {
+      toast({
+        variant: "destructive",
+        title: "Blockchain Submission Failed",
+        description: "Please try again or check your wallet",
+      });
+      throw error;
+    } finally {
+      setIsSubmittingToBlockchain(false);
+    }
+  };
+
+  const getBlockchainStats = async () => {
+    try {
+      const totalProofs = await BlockchainManager.getTotalProofs();
+      const userAddress = await BlockchainManager.getAddress();
+      const userProofs = userAddress ? await BlockchainManager.getUserProofs(userAddress) : [];
+      
+      return {
+        totalOnChainProofs: totalProofs,
+        userOnChainProofs: userProofs.length
+      };
+    } catch (error) {
+      return {
+        totalOnChainProofs: 0,
+        userOnChainProofs: 0
+      };
+    }
+  };
+
   const exportCredentials = () => {
     try {
       const data = ZKIdentityManager.exportCredentials();
@@ -201,11 +291,16 @@ export function useZKIdentity() {
     credentials,
     coPresenceProofs,
     isGeneratingProof,
+    isSubmittingToBlockchain,
+    walletConnected,
     generateEventCredential,
     generateCoPresenceProof,
     verifyCredential,
     exportCredentials,
     getStats,
-    clearAll
+    clearAll,
+    connectWallet,
+    submitProofToBlockchain,
+    getBlockchainStats
   };
 }
