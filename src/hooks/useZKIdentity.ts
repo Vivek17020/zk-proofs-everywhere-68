@@ -48,6 +48,18 @@ export function useZKIdentity() {
         description: `Successfully created proof for ${eventName}`,
       });
 
+      // Trigger confetti animation
+      if (typeof window !== 'undefined') {
+        import('canvas-confetti').then(confetti => {
+          confetti.default({
+            particleCount: 100,
+            spread: 70,
+            origin: { y: 0.6 },
+            colors: ['#8B5CF6', '#06B6D4', '#10B981', '#F59E0B']
+          });
+        });
+      }
+
       return credential;
     } catch (error) {
       toast({
@@ -116,6 +128,18 @@ export function useZKIdentity() {
         title: "Co-Presence Proof Generated! 🤝",
         description: `Proof of co-presence with ${proof.userIdB.slice(0, 8)}... at ${proof.eventId.slice(0, 12)}...`,
       });
+
+      // Trigger confetti animation
+      if (typeof window !== 'undefined') {
+        import('canvas-confetti').then(confetti => {
+          confetti.default({
+            particleCount: 100,
+            spread: 70,
+            origin: { y: 0.6 },
+            colors: ['#8B5CF6', '#06B6D4', '#10B981', '#F59E0B']
+          });
+        });
+      }
 
       return proof;
     } catch (error) {

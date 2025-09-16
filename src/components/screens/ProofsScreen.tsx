@@ -1,12 +1,41 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Shield, Download, Share, Eye, CheckCircle, Clock, Gift, TrendingUp } from "lucide-react";
+import { Shield, Download, Share, Eye, CheckCircle, Clock, Gift, TrendingUp, Users } from "lucide-react";
 import { useZKIdentity } from "@/hooks/useZKIdentity";
+import { useEffect } from "react";
+import confetti from "canvas-confetti";
 
 export default function ProofsScreen() {
   const { credentials, coPresenceProofs, verifyCredential, exportCredentials, getStats } = useZKIdentity();
   const stats = getStats();
+
+  // Celebration animation for new proofs
+  const triggerCelebration = () => {
+    confetti({
+      particleCount: 100,
+      spread: 70,
+      origin: { y: 0.6 },
+      colors: ['#8B5CF6', '#06B6D4', '#10B981', '#F59E0B']
+    });
+  };
+
+  // Listen for new proof generation
+  useEffect(() => {
+    const handleProofGenerated = () => {
+      triggerCelebration();
+    };
+    
+    // This would be triggered by the actual proof generation events
+    // For now, we'll trigger it when credentials change
+    if (credentials.length > 0) {
+      const lastCredential = credentials[credentials.length - 1];
+      const recentlyGenerated = Date.now() - lastCredential.timestamp < 5000; // Last 5 seconds
+      if (recentlyGenerated) {
+        setTimeout(triggerCelebration, 500);
+      }
+    }
+  }, [credentials]);
 
   // Mock stats based on actual credentials or fallback to demo data
   const displayStats = credentials.length > 0 ? {
@@ -38,16 +67,17 @@ export default function ProofsScreen() {
   const coPresenceProofsList = coPresenceProofs.map(proof => ({
     id: proof.eventId,
     type: "Co-Presence Proof",
-    event: `Co-presence Event`,
+    event: `Co-presence Meeting`,
     status: "Valid" as const,
     date: new Date(proof.timestamp).toLocaleDateString(),
     reward: 75,
-    icon: CheckCircle,
-    description: `Proof of co-presence with ${proof.userIdB.slice(0, 8)}... at ${proof.eventId.slice(0, 12)}...`,
+    icon: Users,
+    description: `Proof of co-presence with user ${proof.userIdB.slice(0, 8)}...`,
     proof: proof.proofString,
     location: proof.location || "Unknown",
     usernameB: proof.usernameB,
-    ephemeralNonce: proof.ephemeralNonce
+    ephemeralNonce: proof.ephemeralNonce,
+    maskedUserId: proof.userIdB.slice(0, 8) + "..."
   }));
 
   // Combine all proofs
@@ -222,76 +252,90 @@ export default function ProofsScreen() {
           displayProofs.map((proof) => {
             const IconComponent = proof.icon;
             return (
-              <Card key={proof.id} className="shadow-card glow-stage">
+              <Card key={proof.id} className="shadow-card glow-stage hover-scale transition-all duration-300 border-l-4 border-l-primary/20">
                 <CardHeader className="pb-3">
                   <div className="flex items-start justify-between">
-                    <div className="space-y-2 flex-1">
+                    <div className="space-y-3 flex-1">
                       <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 bg-gradient-primary/20 rounded-full flex items-center justify-center">
-                          <IconComponent className="w-5 h-5 text-primary" />
+                        <div className="w-12 h-12 bg-gradient-to-br from-primary/20 to-secondary/20 rounded-xl flex items-center justify-center border border-primary/10">
+                          <IconComponent className="w-6 h-6 text-primary" />
                         </div>
-                        <div>
-                          <CardTitle className="text-lg">{proof.type}</CardTitle>
-                          <p className="text-sm text-muted-foreground">{proof.event}</p>
+                        <div className="flex-1">
+                          <CardTitle className="text-lg font-semibold">{proof.event}</CardTitle>
+                          <p className="text-sm text-muted-foreground">{proof.type}</p>
                         </div>
                       </div>
+                      
+                      {/* User Masked ID for Co-Presence Proofs */}
+                      {proof.type === "Co-Presence Proof" && "maskedUserId" in proof && typeof proof.maskedUserId === "string" && (
+                        <div className="bg-muted/30 p-3 rounded-lg border border-border/50">
+                          <div className="flex items-center justify-between">
+                            <span className="text-sm text-muted-foreground">Met with user:</span>
+                            <code className="font-mono text-sm text-primary font-medium">{proof.maskedUserId}</code>
+                          </div>
+                        </div>
+                      )}
+                      
                       <p className="text-sm text-muted-foreground leading-relaxed">
                         {proof.description}
                       </p>
-                      <div className="flex items-center space-x-4 text-xs text-muted-foreground">
-                        <span>{proof.location}</span>
-                        <span>{proof.date}</span>
+                      
+                      <div className="flex items-center justify-between text-xs text-muted-foreground">
+                        <div className="flex items-center space-x-4">
+                          <span className="bg-muted/50 px-2 py-1 rounded">{proof.location}</span>
+                          <span>{proof.date}</span>
+                        </div>
+                        {proof.status !== "Submitted" && (
+                          <div className="text-primary font-medium">
+                            +{proof.reward} ZKP
+                          </div>
+                        )}
                       </div>
                     </div>
-                    <div className="flex flex-col items-end gap-2">
+                    
+                    <div className="flex flex-col items-end gap-2 ml-4">
                       <Badge 
                         variant="secondary"
-                        className={getStatusBadgeClass(proof.status)}
+                        className={`${getStatusBadgeClass(proof.status)} transition-colors duration-200`}
                       >
+                        {proof.status === 'Valid' && <CheckCircle className="w-3 h-3 mr-1" />}
+                        {proof.status === 'Submitted' && <Clock className="w-3 h-3 mr-1" />}
+                        {proof.status === 'Rewarded' && <Gift className="w-3 h-3 mr-1" />}
                         {proof.status}
                       </Badge>
-                      {proof.status === 'Rewarded' && (
-                        <div className="text-xs text-primary font-medium">
-                          +{proof.reward} ZKP
-                        </div>
-                      )}
                     </div>
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                   <div className="bg-muted/30 p-3 rounded-lg">
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-muted-foreground">Proof Hash:</span>
-                      <code className="font-mono text-xs">{proof.proof.slice(0, 12)}...</code>
-                    </div>
-                    <div className="flex items-center justify-between text-sm mt-1">
-                      <span className="text-muted-foreground">Type:</span>
-                      <span className="text-xs">{proof.type}</span>
-                    </div>
-                    {proof.type === "Co-Presence Proof" && "ephemeralNonce" in proof && typeof proof.ephemeralNonce === "string" && (
-                      <div className="flex items-center justify-between text-sm mt-1">
-                        <span className="text-muted-foreground">Ephemeral ID:</span>
-                        <code className="font-mono text-xs">{proof.ephemeralNonce.slice(0, 8)}...</code>
+                  <div className="bg-gradient-to-r from-muted/30 to-muted/10 p-4 rounded-lg border border-border/30">
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-muted-foreground font-medium">Proof Hash:</span>
+                        <code className="font-mono text-xs bg-background px-2 py-1 rounded border">{proof.proof.slice(0, 16)}...</code>
                       </div>
-                    )}
-                    {proof.status !== "Submitted" && (
-                      <div className="flex items-center justify-between text-sm mt-1">
-                        <span className="text-muted-foreground">Reward:</span>
-                        <span className="text-xs font-medium text-primary">{proof.reward} ZKP</span>
+                      {proof.type === "Co-Presence Proof" && "ephemeralNonce" in proof && typeof proof.ephemeralNonce === "string" && (
+                        <div className="flex items-center justify-between text-sm">
+                          <span className="text-muted-foreground font-medium">Session ID:</span>
+                          <code className="font-mono text-xs bg-background px-2 py-1 rounded border">{proof.ephemeralNonce.slice(0, 12)}...</code>
+                        </div>
+                      )}
+                      <div className="flex items-center justify-between text-sm pt-1 border-t border-border/30">
+                        <span className="text-muted-foreground font-medium">Status:</span>
+                        <span className="text-xs font-semibold">{proof.status}</span>
                       </div>
-                    )}
+                    </div>
                   </div>
                   
                   <div className="flex space-x-2">
-                    <Button size="sm" variant="outline" className="flex-1">
+                    <Button size="sm" variant="outline" className="flex-1 hover:bg-primary/10 hover:border-primary/30 transition-colors">
                       <Eye className="w-4 h-4 mr-1" />
                       View
                     </Button>
-                    <Button size="sm" variant="outline" className="flex-1">
+                    <Button size="sm" variant="outline" className="flex-1 hover:bg-secondary/10 hover:border-secondary/30 transition-colors">
                       <Share className="w-4 h-4 mr-1" />
                       Share
                     </Button>
-                    <Button size="sm" variant="outline" className="flex-1">
+                    <Button size="sm" variant="outline" className="flex-1 hover:bg-accent/10 hover:border-accent/30 transition-colors">
                       <Download className="w-4 h-4 mr-1" />
                       Export
                     </Button>
