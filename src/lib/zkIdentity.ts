@@ -8,6 +8,7 @@ interface ZKCredential {
   proof: string;
   publicSignals: string[];
   verificationKey: string;
+  blockchainStatus?: "Valid" | "Submitted" | "Confirmed";
   metadata: {
     location?: string;
     duration?: number;
@@ -24,6 +25,7 @@ interface ZKCoPresenceProof {
   ephemeralNonce: string;
   proofString: string;
   timestamp: number;
+  blockchainStatus?: "Valid" | "Submitted" | "Confirmed";
   location?: string;
   credentialA: {
     commitment: string;

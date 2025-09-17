@@ -66,21 +66,23 @@ export default function ProofsScreen() {
     id: cred.id,
     type: "Event Attendance",
     event: cred.eventName,
-    status: "Valid" as const,
+    status: cred.blockchainStatus || "Valid",
     date: new Date(cred.timestamp).toLocaleDateString(),
     reward: 50,
     icon: CheckCircle,
     description: `Zero-knowledge proof of attendance at ${cred.eventName}`,
     proof: cred.proof,
     location: cred.metadata.location || "Unknown",
-    credential: cred // Store full credential for blockchain submission
+    credential: cred, // Store full credential for blockchain submission
+    eventId: cred.eventId,
+    proofHash: cred.proof
   })) : [];
 
   const coPresenceProofsList = coPresenceProofs.map(proof => ({
     id: proof.eventId,
     type: "Co-Presence Proof",
     event: `Co-presence Meeting`,
-    status: "Valid" as const,
+    status: proof.blockchainStatus || "Valid",
     date: new Date(proof.timestamp).toLocaleDateString(),
     reward: 75,
     icon: Users,
@@ -89,7 +91,9 @@ export default function ProofsScreen() {
     location: proof.location || "Unknown",
     usernameB: proof.usernameB,
     ephemeralNonce: proof.ephemeralNonce,
-    maskedUserId: proof.userIdB.slice(0, 8) + "..."
+    maskedUserId: proof.userIdB.slice(0, 8) + "...",
+    eventId: proof.eventId,
+    proofHash: proof.proofString
   }));
 
   // Combine all proofs
@@ -185,15 +189,32 @@ export default function ProofsScreen() {
   };
 
   const handleSubmitToBlockchain = async (proof: any) => {
-    if (proof.credential) {
-      try {
-        const result = await submitProofToBlockchain(proof.credential);
-        if (result) {
-          console.log('Submitted to blockchain:', result);
-        }
-      } catch (error) {
-        console.error('Failed to submit to blockchain:', error);
+    try {
+      let result;
+      if (proof.credential) {
+        // Submit event credential
+        result = await submitProofToBlockchain(proof.credential);
+      } else if (proof.eventId && proof.proofHash) {
+        // Submit co-presence proof directly using BlockchainManager
+        result = await BlockchainManager.submitProofToBlockchain(proof.eventId, proof.proofHash);
       }
+      
+      if (result) {
+        // Update local proof status
+        if (proof.credential) {
+          // Update credential status
+          proof.credential.blockchainStatus = "Submitted";
+        } else {
+          // Update co-presence proof status
+          const coPresenceProof = coPresenceProofs.find(p => p.eventId === proof.id);
+          if (coPresenceProof) {
+            coPresenceProof.blockchainStatus = "Submitted";
+          }
+        }
+        console.log('Submitted to blockchain:', result);
+      }
+    } catch (error) {
+      console.error('Failed to submit to blockchain:', error);
     }
   };
 
@@ -363,7 +384,7 @@ export default function ProofsScreen() {
                       <Share className="w-4 h-4 mr-1" />
                       Share
                     </Button>
-                    {proof.credential && walletConnected && (
+                    {walletConnected && proof.status !== "Submitted" && (
                       <Button 
                         size="sm" 
                         variant="outline" 
@@ -372,7 +393,7 @@ export default function ProofsScreen() {
                         disabled={isSubmittingToBlockchain}
                       >
                         <Upload className="w-4 h-4 mr-1" />
-                        {isSubmittingToBlockchain ? 'Submitting...' : 'To Chain'}
+                        {isSubmittingToBlockchain ? 'Submitting...' : 'Submit to Chain'}
                       </Button>
                     )}
                     <Button size="sm" variant="outline" className="flex-1 hover:bg-accent/10 hover:border-accent/30 transition-colors">
