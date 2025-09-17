@@ -10,6 +10,8 @@ export function useZKIdentity() {
   const [isGeneratingProof, setIsGeneratingProof] = useState(false);
   const [isSubmittingToBlockchain, setIsSubmittingToBlockchain] = useState(false);
   const [walletConnected, setWalletConnected] = useState(false);
+  const [userNFTs, setUserNFTs] = useState<any[]>([]);
+  const [isLoadingNFTs, setIsLoadingNFTs] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -26,6 +28,23 @@ export function useZKIdentity() {
     checkWalletConnection();
   }, []);
 
+  const loadUserNFTs = async () => {
+    if (!walletConnected) return;
+    
+    setIsLoadingNFTs(true);
+    try {
+      const userAddress = await BlockchainManager.getAddress();
+      if (userAddress) {
+        const nfts = await BlockchainManager.getUserNFTs(userAddress);
+        setUserNFTs(nfts);
+      }
+    } catch (error) {
+      console.error('Failed to load user NFTs:', error);
+    } finally {
+      setIsLoadingNFTs(false);
+    }
+  };
+
   const checkWalletConnection = async () => {
     const connected = await BlockchainManager.isConnected();
     setWalletConnected(connected);
@@ -40,6 +59,8 @@ export function useZKIdentity() {
         title: "Wallet Connected! 🔗",
         description: "You can now submit proofs to the blockchain",
       });
+      // Load user NFTs after connecting
+      loadUserNFTs();
     } else {
       toast({
         variant: "destructive",
@@ -231,15 +252,18 @@ export function useZKIdentity() {
       const totalProofs = await BlockchainManager.getTotalProofs();
       const userAddress = await BlockchainManager.getAddress();
       const userProofs = userAddress ? await BlockchainManager.getUserProofs(userAddress) : [];
+      const userNFTCount = userAddress ? await BlockchainManager.getUserNFTCount(userAddress) : 0;
       
       return {
         totalOnChainProofs: totalProofs,
-        userOnChainProofs: userProofs.length
+        userOnChainProofs: userProofs.length,
+        userNFTCount
       };
     } catch (error) {
       return {
         totalOnChainProofs: 0,
-        userOnChainProofs: 0
+        userOnChainProofs: 0,
+        userNFTCount: 0
       };
     }
   };
@@ -290,8 +314,10 @@ export function useZKIdentity() {
     identity,
     credentials,
     coPresenceProofs,
+    userNFTs,
     isGeneratingProof,
     isSubmittingToBlockchain,
+    isLoadingNFTs,
     walletConnected,
     generateEventCredential,
     generateCoPresenceProof,
@@ -301,6 +327,7 @@ export function useZKIdentity() {
     clearAll,
     connectWallet,
     submitProofToBlockchain,
-    getBlockchainStats
+    getBlockchainStats,
+    loadUserNFTs
   };
 }

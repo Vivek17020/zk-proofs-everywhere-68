@@ -12,12 +12,15 @@ export default function ProofsScreen() {
   const { 
     credentials, 
     coPresenceProofs, 
+    userNFTs,
     verifyCredential, 
     exportCredentials, 
     getStats,
     submitProofToBlockchain,
     isSubmittingToBlockchain,
-    walletConnected
+    isLoadingNFTs,
+    walletConnected,
+    loadUserNFTs
   } = useZKIdentity();
   const stats = getStats();
 
@@ -407,6 +410,106 @@ export default function ProofsScreen() {
           })
         )}
       </div>
+
+      {/* Claimed Rewards Section */}
+      {walletConnected && (
+        <div className="space-y-4 mt-8">
+          <div className="flex items-center justify-between">
+            <div className="space-y-2">
+              <h2 className="text-xl font-bold">Claimed Rewards</h2>
+              <p className="text-muted-foreground">Your minted NFTs from verified proofs</p>
+            </div>
+            <Button 
+              onClick={loadUserNFTs} 
+              variant="outline"
+              disabled={isLoadingNFTs}
+              className="hover:bg-primary/10"
+            >
+              {isLoadingNFTs ? 'Loading...' : 'Refresh'}
+            </Button>
+          </div>
+
+          {isLoadingNFTs ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {[1, 2, 3].map((i) => (
+                <Card key={i} className="shadow-card">
+                  <CardContent className="p-4 space-y-4">
+                    <div className="w-full h-48 bg-muted/50 rounded-lg animate-pulse" />
+                    <div className="space-y-2">
+                      <div className="h-4 bg-muted/50 rounded animate-pulse" />
+                      <div className="h-3 bg-muted/30 rounded animate-pulse w-2/3" />
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          ) : userNFTs.length === 0 ? (
+            <Card className="shadow-card">
+              <CardContent className="p-8 text-center space-y-4">
+                <div className="w-32 h-32 mx-auto bg-gradient-primary/20 rounded-xl flex items-center justify-center">
+                  <Gift className="w-16 h-16 text-primary" />
+                </div>
+                <div className="space-y-2">
+                  <h3 className="text-lg font-medium">No NFT rewards yet</h3>
+                  <p className="text-muted-foreground">
+                    Submit your proofs to the blockchain to earn NFT rewards
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {userNFTs.map((nft) => (
+                <Card key={nft.tokenId} className="shadow-card glow-stage hover-scale transition-all duration-300 overflow-hidden">
+                  <div className="relative">
+                    <img 
+                      src={nft.image} 
+                      alt={nft.eventName}
+                      className="w-full h-48 object-cover"
+                      onError={(e) => {
+                        e.currentTarget.src = '/placeholder.svg';
+                      }}
+                    />
+                    <div className="absolute top-2 right-2">
+                      <Badge className="bg-primary/90 text-primary-foreground">
+                        #{nft.tokenId}
+                      </Badge>
+                    </div>
+                  </div>
+                  <CardContent className="p-4 space-y-3">
+                    <div className="space-y-2">
+                      <h3 className="font-semibold text-lg">{nft.eventName}</h3>
+                      <p className="text-sm text-muted-foreground">{nft.description}</p>
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <div className="text-xs text-muted-foreground font-medium">Attributes:</div>
+                      <div className="flex flex-wrap gap-1">
+                        {nft.attributes.map((attr, index) => (
+                          <Badge key={index} variant="secondary" className="text-xs">
+                            {attr.trait_type}: {attr.value}
+                          </Badge>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="flex space-x-2 pt-2">
+                      <Button size="sm" variant="outline" className="flex-1 hover:bg-primary/10">
+                        <Eye className="w-4 h-4 mr-1" />
+                        View
+                      </Button>
+                      <Button size="sm" variant="outline" className="flex-1 hover:bg-secondary/10">
+                        <ExternalLink className="w-4 h-4 mr-1" />
+                        OpenSea
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

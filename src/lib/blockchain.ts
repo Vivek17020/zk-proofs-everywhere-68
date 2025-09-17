@@ -1,6 +1,19 @@
 import { ethers } from 'ethers';
 import deploymentInfo from '@/contracts/deployment.json';
 
+// Mock NFT metadata interface
+interface NFTMetadata {
+  tokenId: string;
+  eventName: string;
+  eventId: string;
+  image: string;
+  description: string;
+  attributes: Array<{
+    trait_type: string;
+    value: string;
+  }>;
+}
+
 export interface BlockchainProof {
   proofId: string;
   eventId: string;
@@ -149,6 +162,70 @@ export class BlockchainManager {
     } catch (error) {
       console.error('❌ Failed to submit proof to blockchain:', error);
       return null;
+    }
+  }
+
+  // Fetch user's NFT rewards
+  static async getUserNFTs(userAddress: string): Promise<NFTMetadata[]> {
+    try {
+      // Mock NFT data - in reality this would query the NFT contract or indexing service
+      const mockNFTs: NFTMetadata[] = [
+        {
+          tokenId: "1",
+          eventName: "ETH Global London",
+          eventId: "eth-global-london-2024",
+          image: "https://images.unsplash.com/photo-1639762681485-074b7f938ba0?w=400&h=400&fit=crop",
+          description: "Commemorative NFT for ETH Global London attendance",
+          attributes: [
+            { trait_type: "Event Type", value: "Hackathon" },
+            { trait_type: "Location", value: "London, UK" },
+            { trait_type: "Year", value: "2024" }
+          ]
+        },
+        {
+          tokenId: "3",
+          eventName: "Devcon 7",
+          eventId: "devcon-7-bangkok",
+          image: "https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=400&h=400&fit=crop",
+          description: "Exclusive NFT for Devcon 7 participants",
+          attributes: [
+            { trait_type: "Event Type", value: "Conference" },
+            { trait_type: "Location", value: "Bangkok, Thailand" },
+            { trait_type: "Year", value: "2024" }
+          ]
+        },
+        {
+          tokenId: "7",
+          eventName: "ZK Circuit Design Workshop",
+          eventId: "zk-workshop-2024",
+          image: "https://images.unsplash.com/photo-1518709268805-4e9042af2176?w=400&h=400&fit=crop",
+          description: "Achievement NFT for completing ZK circuit workshop",
+          attributes: [
+            { trait_type: "Event Type", value: "Workshop" },
+            { trait_type: "Skill Level", value: "Advanced" },
+            { trait_type: "Year", value: "2024" }
+          ]
+        }
+      ];
+
+      // Simulate API delay
+      await new Promise(resolve => setTimeout(resolve, 1000));
+
+      return mockNFTs;
+    } catch (error) {
+      console.error('Failed to fetch user NFTs:', error);
+      return [];
+    }
+  }
+
+  // Get total number of NFTs minted by user
+  static async getUserNFTCount(userAddress: string): Promise<number> {
+    try {
+      const nfts = await this.getUserNFTs(userAddress);
+      return nfts.length;
+    } catch (error) {
+      console.error('Failed to get user NFT count:', error);
+      return 0;
     }
   }
 
