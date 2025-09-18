@@ -12,6 +12,12 @@ export function useZKIdentity() {
   const [walletConnected, setWalletConnected] = useState(false);
   const [userNFTs, setUserNFTs] = useState<any[]>([]);
   const [isLoadingNFTs, setIsLoadingNFTs] = useState(false);
+  const [showRewardScreen, setShowRewardScreen] = useState(false);
+  const [rewardData, setRewardData] = useState<{
+    eventName: string;
+    nftImage?: string;
+    txHash?: string;
+  } | null>(null);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -226,10 +232,13 @@ export function useZKIdentity() {
       );
 
       if (result) {
-        toast({
-          title: "Proof Submitted! 🎉",
-          description: `Transaction: ${result.txHash.slice(0, 10)}...`,
+        // Show reward screen instead of just toast
+        setRewardData({
+          eventName: credential.eventName,
+          nftImage: credential.metadata?.image,
+          txHash: result.txHash
         });
+        setShowRewardScreen(true);
 
         return result;
       } else {
@@ -310,6 +319,11 @@ export function useZKIdentity() {
     });
   };
 
+  const closeRewardScreen = () => {
+    setShowRewardScreen(false);
+    setRewardData(null);
+  };
+
   return {
     identity,
     credentials,
@@ -319,6 +333,8 @@ export function useZKIdentity() {
     isSubmittingToBlockchain,
     isLoadingNFTs,
     walletConnected,
+    showRewardScreen,
+    rewardData,
     generateEventCredential,
     generateCoPresenceProof,
     verifyCredential,
@@ -328,6 +344,7 @@ export function useZKIdentity() {
     connectWallet,
     submitProofToBlockchain,
     getBlockchainStats,
-    loadUserNFTs
+    loadUserNFTs,
+    closeRewardScreen
   };
 }

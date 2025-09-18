@@ -7,6 +7,7 @@ import { useEffect } from "react";
 import confetti from "canvas-confetti";
 import BlockchainStatus from "@/components/BlockchainStatus";
 import { BlockchainManager } from "@/lib/blockchain";
+import { RewardScreen } from "@/components/RewardScreen";
 
 export default function ProofsScreen() {
   const { 
@@ -20,7 +21,10 @@ export default function ProofsScreen() {
     isSubmittingToBlockchain,
     isLoadingNFTs,
     walletConnected,
-    loadUserNFTs
+    loadUserNFTs,
+    showRewardScreen,
+    rewardData,
+    closeRewardScreen
   } = useZKIdentity();
   const stats = getStats();
 
@@ -509,6 +513,17 @@ export default function ProofsScreen() {
             </div>
           )}
         </div>
+      )}
+
+      {/* Reward Screen */}
+      {showRewardScreen && rewardData && (
+        <RewardScreen
+          isOpen={showRewardScreen}
+          onClose={closeRewardScreen}
+          eventName={rewardData.eventName}
+          nftImage={rewardData.nftImage}
+          txHash={rewardData.txHash}
+        />
       )}
     </div>
   );

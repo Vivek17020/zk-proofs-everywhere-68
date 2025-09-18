@@ -13,6 +13,7 @@ interface ZKCredential {
     location?: string;
     duration?: number;
     attendeeCount?: number;
+    image?: string;
   };
 }
 
