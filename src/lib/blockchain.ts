@@ -1,72 +1,82 @@
+// Blockchain integration for ZK proof submission and verification
 import { ethers } from 'ethers';
-import deploymentInfo from '@/contracts/deployment.json';
+import contractDeployment from '@/contracts/deployment.json';
+import type { GroupProof } from '@/lib/groupProofs';
 
-// Mock NFT metadata interface
-interface NFTMetadata {
-  tokenId: string;
-  eventName: string;
-  eventId: string;
-  image: string;
-  description: string;
-  attributes: Array<{
-    trait_type: string;
-    value: string;
-  }>;
-}
-
-export interface BlockchainProof {
-  proofId: string;
-  eventId: string;
-  commitmentHash: string;
-  submitter: string;
-  timestamp: number;
-  verified: boolean;
-  txHash?: string;
-}
+// Mock NFT data for demonstration
+const mockNFTs = [
+  {
+    tokenId: '1',
+    name: 'ETH Denver 2025 Attendee',
+    description: 'Proof of attendance at ETH Denver 2025',
+    image: 'https://images.unsplash.com/photo-1516321497487-e288fb19713f?w=400&h=400&fit=crop',
+    eventId: 'eth-denver-2025',
+    mintedAt: new Date().toISOString()
+  },
+  {
+    tokenId: '2', 
+    name: 'ZK Summit 11 Badge',
+    description: 'Verified participant at ZK Summit 11',
+    image: 'https://images.unsplash.com/photo-1635070041078-e363dbe005cb?w=400&h=400&fit=crop',
+    eventId: 'zk-summit-11',
+    mintedAt: new Date().toISOString()
+  },
+  {
+    tokenId: '3',
+    name: 'Privacy Tech Meetup',
+    description: 'Active participant in Privacy Tech community',
+    image: 'https://images.unsplash.com/photo-1558655146-9f40138edfeb?w=400&h=400&fit=crop',
+    eventId: 'privacy-tech-meetup',
+    mintedAt: new Date().toISOString()
+  }
+];
 
 export class BlockchainManager {
   private static contract: ethers.Contract | null = null;
+  private static signer: ethers.Signer | null = null;
   private static provider: ethers.BrowserProvider | null = null;
-  private static signer: ethers.JsonRpcSigner | null = null;
 
   static async connectWallet(): Promise<boolean> {
     try {
-      if (!window.ethereum) {
-        throw new Error('MetaMask not detected. Please install MetaMask.');
+      if (typeof window === 'undefined' || !window.ethereum) {
+        console.error('MetaMask not detected');
+        return false;
       }
 
+      // Create provider
+      this.provider = new ethers.BrowserProvider(window.ethereum);
+      
       // Request account access
       await window.ethereum.request({ method: 'eth_requestAccounts' });
-
-      // Create provider and signer
-      this.provider = new ethers.BrowserProvider(window.ethereum);
+      
+      // Get signer
       this.signer = await this.provider.getSigner();
-
-      // Check if we're on the correct network
-      const network = await this.provider.getNetwork();
-      if (Number(network.chainId) !== deploymentInfo.chainId) {
-        // Try to switch to the correct network
-        try {
+      
+      // Switch to Polygon Mumbai testnet
+      try {
+        await window.ethereum.request({
+          method: 'wallet_switchEthereumChain',
+          params: [{ chainId: '0x13881' }], // Mumbai testnet
+        });
+      } catch (switchError: any) {
+        // Add the network if it doesn't exist
+        if (switchError.code === 4902) {
           await window.ethereum.request({
-            method: 'wallet_switchEthereumChain',
-            params: [{ chainId: `0x${deploymentInfo.chainId.toString(16)}` }],
+            method: 'wallet_addEthereumChain',
+            params: [{
+              chainId: '0x13881',
+              chainName: 'Polygon Mumbai',
+              nativeCurrency: {
+                name: 'MATIC',
+                symbol: 'MATIC',
+                decimals: 18,
+              },
+              rpcUrls: ['https://rpc-mumbai.maticvigil.com/'],
+              blockExplorerUrls: ['https://mumbai.polygonscan.com/'],
+            }],
           });
-        } catch (switchError: any) {
-          // If the network is not added, add it
-          if (switchError.code === 4902) {
-            await this.addNetwork();
-          } else {
-            throw switchError;
-          }
         }
       }
-
-      // Create contract instance
-      this.contract = new ethers.Contract(
-        deploymentInfo.contractAddress,
-        deploymentInfo.abi,
-        this.signer
-      );
 
       console.log('✅ Wallet connected successfully');
       return true;
@@ -76,32 +86,15 @@ export class BlockchainManager {
     }
   }
 
-  static async addNetwork(): Promise<void> {
-    const networkParams = {
-      chainId: `0x${deploymentInfo.chainId.toString(16)}`,
-      chainName: deploymentInfo.network,
-      nativeCurrency: {
-        name: 'MATIC',
-        symbol: 'MATIC',
-        decimals: 18,
-      },
-      rpcUrls: ['https://rpc-mumbai.maticvigil.com'],
-      blockExplorerUrls: [deploymentInfo.explorerUrl],
-    };
-
-    await window.ethereum.request({
-      method: 'wallet_addEthereumChain',
-      params: [networkParams],
-    });
-  }
-
   static async isConnected(): Promise<boolean> {
     try {
-      if (!window.ethereum) return false;
-      
+      if (typeof window === 'undefined' || !window.ethereum) {
+        return false;
+      }
+
       const accounts = await window.ethereum.request({ method: 'eth_accounts' });
       return accounts && accounts.length > 0;
-    } catch {
+    } catch (error) {
       return false;
     }
   }
@@ -111,52 +104,52 @@ export class BlockchainManager {
       if (!this.signer) {
         await this.connectWallet();
       }
-      return this.signer ? await this.signer.getAddress() : null;
-    } catch {
+      
+      if (this.signer) {
+        return await this.signer.getAddress();
+      }
+      
+      return null;
+    } catch (error) {
+      console.error('Failed to get address:', error);
       return null;
     }
   }
 
-  static async submitProofToBlockchain(
-    eventId: string,
-    proofString: string
-  ): Promise<{ proofId: string; txHash: string } | null> {
-    try {
-      if (!this.contract) {
-        const connected = await this.connectWallet();
-        if (!connected) throw new Error('Failed to connect to wallet');
+  private static async getContractWithSigner(): Promise<{signer: ethers.Signer, contract: ethers.Contract}> {
+    if (!this.signer) {
+      const connected = await this.connectWallet();
+      if (!connected) {
+        throw new Error('Failed to connect wallet');
       }
+    }
 
-      console.log('📤 Submitting proof to blockchain...');
-      console.log(`Event ID: ${eventId}`);
-      console.log(`Proof String: ${proofString.slice(0, 20)}...`);
+    if (!this.contract) {
+      this.contract = new ethers.Contract(
+        contractDeployment.contractAddress,
+        contractDeployment.abi,
+        this.signer!
+      );
+    }
+
+    return { signer: this.signer!, contract: this.contract };
+  }
+
+  static async submitProofToBlockchain(eventId: string, proofString: string): Promise<{txHash: string} | null> {
+    try {
+      const { signer, contract } = await this.getContractWithSigner();
+      
+      console.log('📤 Submitting proof to blockchain:', { eventId, proof: proofString });
 
       // Submit proof to contract
-      const tx = await this.contract!.submitProof(eventId, proofString);
-      console.log(`🔄 Transaction submitted: ${tx.hash}`);
-
+      const tx = await contract.submitProof(eventId, proofString);
+      console.log('⏳ Transaction submitted:', tx.hash);
+      
       // Wait for confirmation
       const receipt = await tx.wait();
-      console.log('✅ Transaction confirmed!');
-
-      // Extract proof ID from event logs
-      const event = receipt.logs.find((log: any) => {
-        try {
-          const parsed = this.contract!.interface.parseLog(log);
-          return parsed?.name === 'ProofSubmitted';
-        } catch {
-          return false;
-        }
-      });
-
-      let proofId = '';
-      if (event) {
-        const parsed = this.contract!.interface.parseLog(event);
-        proofId = parsed?.args?.proofId || '';
-      }
-
+      console.log('✅ Proof submitted successfully:', receipt.hash);
+      
       return {
-        proofId,
         txHash: tx.hash
       };
     } catch (error) {
@@ -165,60 +158,78 @@ export class BlockchainManager {
     }
   }
 
-  // Fetch user's NFT rewards
-  static async getUserNFTs(userAddress: string): Promise<NFTMetadata[]> {
+  static async submitGroupProofToBlockchain(groupProof: GroupProof): Promise<{txHash: string; proofId: string} | null> {
     try {
-      // Mock NFT data - in reality this would query the NFT contract or indexing service
-      const mockNFTs: NFTMetadata[] = [
-        {
-          tokenId: "1",
-          eventName: "ETH Global London",
-          eventId: "eth-global-london-2024",
-          image: "https://images.unsplash.com/photo-1639762681485-074b7f938ba0?w=400&h=400&fit=crop",
-          description: "Commemorative NFT for ETH Global London attendance",
-          attributes: [
-            { trait_type: "Event Type", value: "Hackathon" },
-            { trait_type: "Location", value: "London, UK" },
-            { trait_type: "Year", value: "2024" }
-          ]
-        },
-        {
-          tokenId: "3",
-          eventName: "Devcon 7",
-          eventId: "devcon-7-bangkok",
-          image: "https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=400&h=400&fit=crop",
-          description: "Exclusive NFT for Devcon 7 participants",
-          attributes: [
-            { trait_type: "Event Type", value: "Conference" },
-            { trait_type: "Location", value: "Bangkok, Thailand" },
-            { trait_type: "Year", value: "2024" }
-          ]
-        },
-        {
-          tokenId: "7",
-          eventName: "ZK Circuit Design Workshop",
-          eventId: "zk-workshop-2024",
-          image: "https://images.unsplash.com/photo-1518709268805-4e9042af2176?w=400&h=400&fit=crop",
-          description: "Achievement NFT for completing ZK circuit workshop",
-          attributes: [
-            { trait_type: "Event Type", value: "Workshop" },
-            { trait_type: "Skill Level", value: "Advanced" },
-            { trait_type: "Year", value: "2024" }
-          ]
-        }
-      ];
+      const { signer, contract } = await this.getContractWithSigner();
+      
+      // Create a combined eventId for group proof
+      const groupEventId = `${groupProof.eventId}_group_${groupProof.participants.length}`;
+      
+      // Use merkle root as proof string for group proofs
+      const proofString = groupProof.merkleRoot;
+      
+      console.log('Submitting group proof to blockchain:', {
+        eventId: groupEventId,
+        proof: proofString,
+        participants: groupProof.participants.length
+      });
 
-      // Simulate API delay
-      await new Promise(resolve => setTimeout(resolve, 1000));
-
-      return mockNFTs;
+      // Submit group proof to contract
+      const tx = await contract.submitProof(groupEventId, proofString);
+      const receipt = await tx.wait();
+      
+      console.log('Group proof submitted successfully:', receipt.hash);
+      
+      return {
+        txHash: receipt.hash,
+        proofId: receipt.hash // Using tx hash as proof ID for simplicity
+      };
     } catch (error) {
-      console.error('Failed to fetch user NFTs:', error);
+      console.error('Failed to submit group proof to blockchain:', error);
+      return null;
+    }
+  }
+
+  static async getTotalProofs(): Promise<number> {
+    try {
+      const { contract } = await this.getContractWithSigner();
+      const total = await contract.getTotalProofs();
+      return parseInt(total.toString());
+    } catch (error) {
+      console.error('Failed to get total proofs:', error);
+      return 0;
+    }
+  }
+
+  static async getUserProofs(userAddress: string): Promise<string[]> {
+    try {
+      const { contract } = await this.getContractWithSigner();
+      const proofs = await contract.getUserProofs(userAddress);
+      return proofs;
+    } catch (error) {
+      console.error('Failed to get user proofs:', error);
       return [];
     }
   }
 
-  // Get total number of NFTs minted by user
+  static async getUserNFTs(userAddress: string): Promise<any[]> {
+    try {
+      // Mock implementation - in real app would query NFT contract or indexer
+      const userProofs = await this.getUserProofs(userAddress);
+      
+      // Return mock NFTs based on number of proofs
+      return mockNFTs.slice(0, Math.min(userProofs.length, mockNFTs.length));
+    } catch (error) {
+      console.error('Failed to get user NFTs:', error);
+      return [];
+    }
+  }
+
+  static getContractUrl(): string {
+    return `${contractDeployment.explorerUrl}/address/${contractDeployment.contractAddress}`;
+  }
+  }
+
   static async getUserNFTCount(userAddress: string): Promise<number> {
     try {
       const nfts = await this.getUserNFTs(userAddress);
@@ -228,66 +239,9 @@ export class BlockchainManager {
       return 0;
     }
   }
-
-  static async getProofFromBlockchain(proofId: string): Promise<BlockchainProof | null> {
-    try {
-      if (!this.contract) {
-        await this.connectWallet();
-      }
-
-      const result = await this.contract!.getProof(proofId);
-      
-      return {
-        proofId,
-        eventId: result[0],
-        commitmentHash: result[1],
-        submitter: result[2],
-        timestamp: Number(result[3]),
-        verified: result[4]
-      };
-    } catch (error) {
-      console.error('❌ Failed to get proof from blockchain:', error);
-      return null;
-    }
-  }
-
-  static async getUserProofs(userAddress: string): Promise<string[]> {
-    try {
-      if (!this.contract) {
-        await this.connectWallet();
-      }
-
-      return await this.contract!.getUserProofs(userAddress);
-    } catch (error) {
-      console.error('❌ Failed to get user proofs:', error);
-      return [];
-    }
-  }
-
-  static async getTotalProofs(): Promise<number> {
-    try {
-      if (!this.contract) {
-        await this.connectWallet();
-      }
-
-      const total = await this.contract!.getTotalProofs();
-      return Number(total);
-    } catch (error) {
-      console.error('❌ Failed to get total proofs:', error);
-      return 0;
-    }
-  }
-
-  static getExplorerUrl(txHash: string): string {
-    return `${deploymentInfo.explorerUrl}/tx/${txHash}`;
-  }
-
-  static getContractUrl(): string {
-    return `${deploymentInfo.explorerUrl}/address/${deploymentInfo.contractAddress}`;
-  }
 }
 
-// Extend window type for TypeScript
+// Extend Window interface for TypeScript
 declare global {
   interface Window {
     ethereum?: any;

@@ -38,6 +38,9 @@ interface ZKCoPresenceProof {
   };
 }
 
+// Import group proof types
+export type { GroupProof, GroupSession, GroupParticipant } from '@/lib/groupProofs';
+
 interface ZKIdentity {
   identityCommitment: string;
   nullifierHash: string;

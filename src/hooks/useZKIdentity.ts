@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { ZKIdentityManager, type ZKCredential, type ZKIdentity, type ZKCoPresenceProof } from '@/lib/zkIdentity';
+import { ZKIdentityManager, type ZKCredential, type ZKIdentity, type ZKCoPresenceProof, type GroupProof } from '@/lib/zkIdentity';
 import { useToast } from '@/hooks/use-toast';
 import { BlockchainManager } from '@/lib/blockchain';
 
@@ -256,6 +256,47 @@ export function useZKIdentity() {
     }
   };
 
+  const submitGroupProofToBlockchain = async (groupProof: GroupProof) => {
+    if (!walletConnected) {
+      const connected = await connectWallet();
+      if (!connected) return null;
+    }
+
+    setIsSubmittingToBlockchain(true);
+    
+    try {
+      toast({
+        title: "Submitting Group Proof ⛓️",
+        description: `Publishing proof for ${groupProof.participants.length} participants...`,
+      });
+
+      const result = await BlockchainManager.submitGroupProofToBlockchain(groupProof);
+
+      if (result) {
+        // Show reward screen for group proof
+        setRewardData({
+          eventName: `${groupProof.eventName} (Group)`,
+          nftImage: undefined, // Group proofs might have different NFT images
+          txHash: result.txHash
+        });
+        setShowRewardScreen(true);
+
+        return result;
+      } else {
+        throw new Error('Failed to submit group proof to blockchain');
+      }
+    } catch (error) {
+      toast({
+        variant: "destructive",
+        title: "Group Proof Submission Failed",
+        description: "Please try again or check your wallet",
+      });
+      throw error;
+    } finally {
+      setIsSubmittingToBlockchain(false);
+    }
+  };
+
   const getBlockchainStats = async () => {
     try {
       const totalProofs = await BlockchainManager.getTotalProofs();
@@ -343,6 +384,7 @@ export function useZKIdentity() {
     clearAll,
     connectWallet,
     submitProofToBlockchain,
+    submitGroupProofToBlockchain,
     getBlockchainStats,
     loadUserNFTs,
     closeRewardScreen

@@ -3,13 +3,16 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { Calendar, MapPin, Users, Clock, Search, Filter, Zap } from "lucide-react";
+import { Calendar, MapPin, Users, Clock, Search, Filter, Zap, UserPlus } from "lucide-react";
 import eventsImage from "@/assets/events-icon.jpg";
 import { useZKIdentity } from "@/hooks/useZKIdentity";
+import { GroupSession } from "@/components/GroupSession";
 
 export default function EventsScreen() {
-  const { generateEventCredential, isGeneratingProof } = useZKIdentity();
+  const { generateEventCredential, isGeneratingProof, submitGroupProofToBlockchain } = useZKIdentity();
   const [joinedEvents, setJoinedEvents] = useState<Set<string>>(new Set());
+  const [selectedEvent, setSelectedEvent] = useState<string | null>(null);
+  const [showGroupSession, setShowGroupSession] = useState(false);
 
   // Mock events data
   const events = [
@@ -77,6 +80,32 @@ export default function EventsScreen() {
       console.error('Failed to generate credential:', error);
     }
   };
+
+  if (showGroupSession && selectedEvent) {
+    const event = events.find(e => e.id === selectedEvent);
+    return (
+      <div className="p-6 pb-24 space-y-6 animate-fade-in">
+        <div className="flex items-center justify-between">
+          <div className="space-y-2">
+            <h1 className="text-2xl font-bold">Group Verification</h1>
+            <p className="text-muted-foreground">{event?.name}</p>
+          </div>
+          <Button 
+            variant="outline" 
+            onClick={() => setShowGroupSession(false)}
+          >
+            Back to Events
+          </Button>
+        </div>
+        
+        <GroupSession
+          eventId={selectedEvent}
+          eventName={event?.name || 'Unknown Event'}
+          onGroupProofGenerated={handleGroupProofGenerated}
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="p-6 pb-24 space-y-6 animate-fade-in">
@@ -182,19 +211,30 @@ export default function EventsScreen() {
                          <div className="w-4 h-4 border-2 border-primary-foreground border-t-transparent rounded-full animate-spin mr-2" />
                          Generating ZK Proof...
                        </>
-                     ) : (
-                       <>
-                         <Zap className="w-4 h-4 mr-2" />
-                         {event.status === 'open' ? 'Join & Generate Proof' : 
-                          event.status === 'registration' ? 'Register & Generate Proof' : 'Coming Soon'}
-                       </>
-                     )}
-                   </Button>
-                 )}
-                 <Button size="sm" variant="outline">
-                   Details
-                 </Button>
-               </div>
+                  ) : (
+                    <div className="flex gap-2">
+                      <Button 
+                        size="sm" 
+                        className="flex-1"
+                        onClick={() => handleJoinEvent(event.id, event.name)}
+                        disabled={isGeneratingProof}
+                      >
+                        <Zap className="w-3 h-3 mr-1" />
+                        Generate Proof
+                      </Button>
+                      
+                      {event.requiresProof && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="flex-1"
+                          onClick={() => handleGroupSession(event.id, event.name)}
+                        >
+                          <UserPlus className="w-3 h-3 mr-1" />
+                          Group
+                        </Button>
+                      )}
+                    </div>
             </CardContent>
           </Card>
         ))}
