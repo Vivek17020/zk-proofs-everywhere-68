@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { QRCodeGenerator } from '@/components/QRCodeGenerator';
+import QRCode from 'qrcode';
 import { GroupSessionCreator } from '@/components/GroupSessionCreator';
 import { GroupSessionScanner } from '@/components/GroupSessionScanner';
 import { useGroupSession } from '@/hooks/useGroupSession';
@@ -52,6 +52,7 @@ export function GroupSession({
   const [viewMode, setViewMode] = useState<ViewMode>('list');
   const [timeLeft, setTimeLeft] = useState(0);
   const [copied, setCopied] = useState(false);
+  const [qrCodeUrl, setQrCodeUrl] = useState('');
 
   // Update countdown timer
   useEffect(() => {
@@ -83,6 +84,32 @@ export function GroupSession({
       setViewMode('list');
     }
   }, [currentSession, viewMode]);
+
+  const isHost = currentSession?.hostUserId === currentUser.id;
+
+  // Generate QR code when session is available
+  useEffect(() => {
+    if (currentSession && isHost) {
+      const generateQR = async () => {
+        try {
+          const qrData = getQRData(currentSession);
+          const qrCodeDataUrl = await QRCode.toDataURL(qrData, {
+            errorCorrectionLevel: 'M',
+            margin: 1,
+            color: {
+              dark: '#000000',
+              light: '#FFFFFF',
+            },
+            width: 200
+          });
+          setQrCodeUrl(qrCodeDataUrl);
+        } catch (error) {
+          console.error('Failed to generate QR code:', error);
+        }
+      };
+      generateQR();
+    }
+  }, [currentSession, isHost, getQRData]);
 
   const handleCreateSession = async () => {
     if (!eventId || !eventName) return;
@@ -121,7 +148,6 @@ export function GroupSession({
     return `${minutes}:${seconds.toString().padStart(2, '0')}`;
   };
 
-  const isHost = currentSession?.hostUserId === currentUser.id;
   const canGenerateProof = currentSession && 
     currentSession.participants.length >= currentSession.minParticipants &&
     (isHost || currentSession.status === 'active');
@@ -316,10 +342,19 @@ export function GroupSession({
             </CardHeader>
             <CardContent>
               <div className="flex justify-center">
-                <QRCodeGenerator
-                  data={getQRData(currentSession)}
-                  size={200}
-                />
+                {qrCodeUrl ? (
+                  <div className="p-4 bg-white rounded-lg">
+                    <img 
+                      src={qrCodeUrl} 
+                      alt="Group session QR code"
+                      className="w-48 h-48"
+                    />
+                  </div>
+                ) : (
+                  <div className="w-48 h-48 bg-muted rounded-lg flex items-center justify-center">
+                    <p className="text-muted-foreground">Generating QR...</p>
+                  </div>
+                )}
               </div>
             </CardContent>
           </Card>

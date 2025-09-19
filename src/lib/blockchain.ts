@@ -228,7 +228,6 @@ export class BlockchainManager {
   static getContractUrl(): string {
     return `${contractDeployment.explorerUrl}/address/${contractDeployment.contractAddress}`;
   }
-  }
 
   static async getUserNFTCount(userAddress: string): Promise<number> {
     try {

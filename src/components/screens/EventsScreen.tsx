@@ -81,6 +81,20 @@ export default function EventsScreen() {
     }
   };
 
+  const handleGroupProofGenerated = async (groupProof: any) => {
+    try {
+      await submitGroupProofToBlockchain(groupProof);
+      console.log('Group proof submitted successfully');
+    } catch (error) {
+      console.error('Failed to submit group proof:', error);
+    }
+  };
+
+  const handleGroupSession = (eventId: string, eventName: string) => {
+    setSelectedEvent(eventId);
+    setShowGroupSession(true);
+  };
+
   if (showGroupSession && selectedEvent) {
     const event = events.find(e => e.id === selectedEvent);
     return (
@@ -194,33 +208,31 @@ export default function EventsScreen() {
                 </div>
               </div>
 
-               <div className="flex gap-2 mt-4">
-                 {joinedEvents.has(event.id) ? (
-                   <Badge variant="secondary" className="bg-success/20 text-success border-success/30 flex items-center gap-1">
-                     <Zap className="w-3 h-3" />
-                     ZK Proof Generated
-                   </Badge>
-                 ) : (
-                   <Button 
-                     onClick={() => handleJoinEvent(event)}
-                     disabled={isGeneratingProof || event.status === 'upcoming'}
-                     className="bg-gradient-primary hover:bg-gradient-secondary glow-stage transition-all duration-300"
-                   >
-                     {isGeneratingProof ? (
-                       <>
-                         <div className="w-4 h-4 border-2 border-primary-foreground border-t-transparent rounded-full animate-spin mr-2" />
-                         Generating ZK Proof...
-                       </>
+                <div className="flex gap-2 mt-4">
+                  {joinedEvents.has(event.id) ? (
+                    <Badge variant="secondary" className="bg-success/20 text-success border-success/30 flex items-center gap-1">
+                      <Zap className="w-3 h-3" />
+                      ZK Proof Generated
+                    </Badge>
                   ) : (
                     <div className="flex gap-2">
                       <Button 
                         size="sm" 
                         className="flex-1"
-                        onClick={() => handleJoinEvent(event.id, event.name)}
-                        disabled={isGeneratingProof}
+                        onClick={() => handleJoinEvent(event)}
+                        disabled={isGeneratingProof || event.status === 'upcoming'}
                       >
-                        <Zap className="w-3 h-3 mr-1" />
-                        Generate Proof
+                        {isGeneratingProof ? (
+                          <>
+                            <div className="w-4 h-4 border-2 border-primary-foreground border-t-transparent rounded-full animate-spin mr-2" />
+                            Generating...
+                          </>
+                        ) : (
+                          <>
+                            <Zap className="w-3 h-3 mr-1" />
+                            Generate Proof
+                          </>
+                        )}
                       </Button>
                       
                       {event.requiresProof && (
@@ -235,6 +247,8 @@ export default function EventsScreen() {
                         </Button>
                       )}
                     </div>
+                  )}
+                </div>
             </CardContent>
           </Card>
         ))}

@@ -70,7 +70,10 @@ export function GroupSessionScanner({
           
           <CardContent className="space-y-4">
             <div className="aspect-square w-full max-w-64 mx-auto border-2 border-dashed border-border rounded-lg overflow-hidden">
-              <QRCodeScanner onResult={handleQRScan} />
+              <QRCodeScanner 
+                onClose={() => {}}
+                onProofGenerated={() => {}}
+              />
             </div>
             
             <div className="text-center">
