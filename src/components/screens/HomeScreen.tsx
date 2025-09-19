@@ -1,19 +1,23 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Shield, Calendar, TrendingUp, Plus, Bluetooth, Wifi, User, MapPin, Zap, QrCode, Camera } from "lucide-react";
+import { Shield, Calendar, TrendingUp, Plus, Bluetooth, Wifi, User, MapPin, Zap, QrCode, Camera, Users } from "lucide-react";
 import { useZKIdentity } from "@/hooks/useZKIdentity";
 import { useToast } from "@/hooks/use-toast";
 import { QRCodeGenerator } from "@/components/QRCodeGenerator";
 import { QRCodeScanner } from "@/components/QRCodeScanner";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { CrowdSimulation } from "@/lib/crowdSimulation";
+import { Progress } from "@/components/ui/progress";
 
 export default function HomeScreen() {
   const [isScanning, setIsScanning] = useState(false);
   const [connectingTo, setConnectingTo] = useState<string | null>(null);
   const [showQRGenerator, setShowQRGenerator] = useState(false);
   const [showQRScanner, setShowQRScanner] = useState(false);
+  const [scanProgress, setScanProgress] = useState(0);
+  const [crowdStats, setCrowdStats] = useState({ totalAttendees: 0, currentVisible: 0 });
   const [nearbyUsers, setNearbyUsers] = useState<Array<{
     id: string;
     username: string;
@@ -22,36 +26,76 @@ export default function HomeScreen() {
     method: 'bluetooth' | 'wifi';
     connected: boolean;
     ephemeralId?: string;
+    lastSeen: number;
   }>>([]);
+  
+  const crowdSimulation = useRef<CrowdSimulation | null>(null);
   
   const { generateCoPresenceProof, identity, isGeneratingProof } = useZKIdentity();
   const { toast } = useToast();
 
-  const mockNearbyUsers = [
-    { id: "0x1a2b3c", username: "alice_zk", distance: "2m", signal: "strong" as const, method: "bluetooth" as const, connected: false },
-    { id: "0x4d5e6f", username: "bob_crypto", distance: "5m", signal: "medium" as const, method: "wifi" as const, connected: false },
-    { id: "0x7g8h9i", username: "charlie_dev", distance: "8m", signal: "medium" as const, method: "bluetooth" as const, connected: false },
-    { id: "0xj1k2l3", username: "diana_zkp", distance: "12m", signal: "weak" as const, method: "wifi" as const, connected: false },
-    { id: "0xm4n5o6", username: "eve_privacy", distance: "15m", signal: "weak" as const, method: "bluetooth" as const, connected: false },
-  ];
+  // Initialize crowd simulation
+  useEffect(() => {
+    crowdSimulation.current = new CrowdSimulation({
+      totalAttendees: 500000,
+      batchSize: 200,
+      maxNearbyVisible: 8,
+      scanIntervalMs: 1500
+    });
+    
+    const stats = crowdSimulation.current.getStats();
+    setCrowdStats({ 
+      totalAttendees: stats.totalAttendees, 
+      currentVisible: 0 
+    });
+    
+    toast({
+      title: "Crowd Simulation Ready 🏟️",
+      description: `${stats.totalAttendees.toLocaleString()} attendees simulated`,
+    });
+  }, [toast]);
 
-  const handleDetectNearby = () => {
+  const handleDetectNearby = async () => {
+    if (!crowdSimulation.current || isScanning) return;
+    
     setIsScanning(true);
     setNearbyUsers([]);
+    setScanProgress(0);
     
-    // Simulate scanning delay and gradual discovery
-    setTimeout(() => {
-      setNearbyUsers(mockNearbyUsers.slice(0, 2));
-    }, 800);
-    
-    setTimeout(() => {
-      setNearbyUsers(mockNearbyUsers.slice(0, 4));
-    }, 1500);
-    
-    setTimeout(() => {
-      setNearbyUsers(mockNearbyUsers);
+    toast({
+      title: "Large Scale Scanning 📡",
+      description: "Processing 500K+ attendees with optimized batching...",
+    });
+
+    try {
+      await crowdSimulation.current.startScanning(
+        (users, isComplete) => {
+          setNearbyUsers(users);
+          setCrowdStats(prev => ({ 
+            ...prev, 
+            currentVisible: users.length 
+          }));
+          
+          if (isComplete) {
+            setIsScanning(false);
+            toast({
+              title: "Scan Complete ✅",
+              description: `Found ${users.length} nearby users from crowd of ${crowdStats.totalAttendees.toLocaleString()}`,
+            });
+          }
+        },
+        (progress) => {
+          setScanProgress(Math.round(progress * 100));
+        }
+      );
+    } catch (error) {
       setIsScanning(false);
-    }, 2200);
+      toast({
+        variant: "destructive",
+        title: "Scan Failed",
+        description: "Failed to scan nearby users. Please try again.",
+      });
+    }
   };
 
   const generateEphemeralId = () => {
@@ -85,6 +129,9 @@ export default function HomeScreen() {
             : user
         )
       );
+      
+      // Update in crowd simulation
+      crowdSimulation.current?.updateUserConnection(userId, true, ephemeralId);
 
       toast({
         title: "Connection Established! 🔗",
@@ -147,12 +194,12 @@ export default function HomeScreen() {
 
         <Card className="shadow-card bg-gradient-dark">
           <CardContent className="p-4 flex items-center space-x-3">
-            <div className="p-2 bg-success/20 rounded-lg">
-              <Calendar className="w-5 h-5 text-success" />
+            <div className="p-2 bg-warning/20 rounded-lg">
+              <Users className="w-5 h-5 text-warning" />
             </div>
             <div>
-              <p className="text-2xl font-bold">8</p>
-              <p className="text-sm text-muted-foreground">Events Attended</p>
+              <p className="text-2xl font-bold">{crowdStats.totalAttendees.toLocaleString()}</p>
+              <p className="text-sm text-muted-foreground">Crowd Size</p>
             </div>
           </CardContent>
         </Card>
@@ -253,19 +300,37 @@ export default function HomeScreen() {
       {(nearbyUsers.length > 0 || isScanning) && (
         <Card className="shadow-card">
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <MapPin className="w-5 h-5" />
-              Nearby Users
-              {isScanning && (
-                <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-              )}
+            <CardTitle className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <MapPin className="w-5 h-5" />
+                Nearby Users
+                {isScanning && (
+                  <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                )}
+              </div>
+              <Badge variant="outline" className="text-xs">
+                {crowdStats.currentVisible}/{crowdStats.totalAttendees.toLocaleString()}
+              </Badge>
             </CardTitle>
+            {isScanning && (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-muted-foreground">Scanning progress</span>
+                  <span className="text-primary font-medium">{scanProgress}%</span>
+                </div>
+                <Progress value={scanProgress} className="h-2" />
+              </div>
+            )}
           </CardHeader>
           <CardContent className="space-y-3">
             {nearbyUsers.length === 0 && isScanning && (
               <div className="text-center py-8 text-muted-foreground">
-                <Bluetooth className="w-8 h-8 mx-auto mb-2 animate-pulse" />
-                <p>Scanning for nearby users...</p>
+                <div className="relative">
+                  <Bluetooth className="w-8 h-8 mx-auto mb-2 animate-pulse" />
+                  <div className="absolute -top-1 -right-1 w-3 h-3 bg-primary rounded-full animate-ping" />
+                </div>
+                <p className="mb-2">Scanning massive crowd...</p>
+                <p className="text-xs">Processing {crowdStats.totalAttendees.toLocaleString()} attendees with AI optimization</p>
               </div>
             )}
             
@@ -326,14 +391,29 @@ export default function HomeScreen() {
             ))}
             
             {nearbyUsers.length > 0 && !isScanning && (
-              <div className="text-center pt-2">
+              <div className="flex justify-center gap-2 pt-2">
                 <Button 
                   variant="ghost" 
                   size="sm"
-                  onClick={() => setNearbyUsers([])}
+                  onClick={() => {
+                    const refreshed = crowdSimulation.current?.refreshNearby() || [];
+                    setNearbyUsers(refreshed);
+                    setCrowdStats(prev => ({ ...prev, currentVisible: refreshed.length }));
+                  }}
                   className="text-muted-foreground"
                 >
-                  Clear Results
+                  Refresh
+                </Button>
+                <Button 
+                  variant="ghost" 
+                  size="sm"
+                  onClick={() => {
+                    setNearbyUsers([]);
+                    setCrowdStats(prev => ({ ...prev, currentVisible: 0 }));
+                  }}
+                  className="text-muted-foreground"
+                >
+                  Clear
                 </Button>
               </div>
             )}
